@@ -7,7 +7,7 @@
 <title>Широкоформатний друк</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=4">
+<link rel="stylesheet" href="app.css?v=5">
 </head>
 <body>
 
@@ -31,7 +31,7 @@
 <aside class="drawer" id="drawer"></aside>
 <div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
 
-<script src="shared.js?v=4"></script>
+<script src="shared.js?v=5"></script>
 <script>
 /* =====================================================================
    РЕНДЕР
@@ -76,15 +76,14 @@ function renderSize(){
   let left=`<div class="lbl">Оберіть стандартний:</div><select class="sel" id="stdSel">${stdOpts}</select>`;
   if(c.kind==='stand'){
     left+=`<div class="stand-modes">${['Конструкція + друк банера','Друк банера без конструкції','Конструкція без друку'].map((t,i)=>`<label class="radio"><input type="radio" name="sm" value="${i}" ${i===S.standMode?'checked':''}>${t}</label>`).join('')}</div>`;
-  } else if(c.fixed){
-    left+=`<p class="muted" style="font-size:13px;margin:12px 0 0">Стандартні формати за фіксованою ціною за штуку. Потрібен інший розмір — оберіть категорію «Папір» або «Банер», там ціна рахується за площею.</p>`;
   } else {
     const rows=S.sizes.length?S.sizes:[{w:'',h:''}];
     left+=`<div class="lbl" style="margin-top:16px">Введіть свій:</div>`+rows.map((r,i)=>`
       <div class="own" data-i="${i}"><input class="inp" data-k="w" placeholder="Ширина" type="number" min="0" value="${r.w}"><span class="x">×</span><input class="inp" data-k="h" placeholder="Висота" type="number" min="0" value="${r.h}">
       ${i===0?`<select class="sel" id="unit"><option value="mm" ${S.unit==='mm'?'selected':''}>мм</option><option value="cm" ${S.unit==='cm'?'selected':''}>см</option></select>`:'<span></span>'}
       ${i>0?`<button class="rm" data-rm="${i}" title="Видалити">×</button>`:'<span></span>'}</div>`).join('')+
-      `<button class="btn" id="addSize" style="margin-top:8px">Додати ще один розмір</button>`;
+      `<button class="btn" id="addSize" style="margin-top:8px">Додати ще один розмір</button>`+
+      (c.fixed?`<p class="muted" style="font-size:13px;margin:12px 0 0">Стандартні формати — за фіксованою ціною за штуку. Свій розмір рахується за площею.</p>`:'');
   }
   $('#sizeCard').innerHTML=`<div class="card-h"><h2>Розмір</h2></div><div class="size-grid"><div>${left}</div><div><div class="pv-h">Вигляд готового виробу</div><div class="pv" id="pv"></div></div></div>`;
   renderPreview();

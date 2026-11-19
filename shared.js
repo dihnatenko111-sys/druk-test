@@ -377,7 +377,7 @@ function price(cat,mat,qk,lamI,term,tirage){
   const mult=tirage*S.kits;
   const o=optionsCost(cat,sizes,mult,mat);
   let base, info;
-  if(cat.fixed){ // фіксована ціна за штуку для стандартного формату
+  if(cat.fixed&&!hasOwnSize()){ // фіксована ціна за штуку для стандартного формату; свій розмір рахується за площею
     const st=cat.std[S.std], fx=mat.fx&&mat.fx[st[0]+'x'+st[1]], fp=fx&&fx[qk]; if(fp==null) return null;
     base=fp*mult+o.cost; info={L:null,printCost:fp*mult,waste:0,wasteCost:0,fixed:true};
   } else if(cat.kind==='stand'){
@@ -415,10 +415,10 @@ function ready(term,extraDays=0){
    ДОПОМІЖНЕ
    ===================================================================== */
 const curCat=()=>CATS[S.cat];
+const hasOwnSize=()=>S.sizes.some(s=>+s.w>0&&+s.h>0);
 const stdList=()=>{ const c=curCat(); return c.kind==='stand'?c.vids[S.vid].sizes:c.std; };
 function curSizes(){ // см
   const c=curCat(); const k=S.unit==='mm'?0.1:1;
-  if(c.fixed){ const s=c.std[S.std]||c.std[0]; return [{w:s[0]/10,h:s[1]/10}]; }
   if(c.kind==='stand'){ const s=c.vids[S.vid].sizes[S.std]; return [{w:s[0]/10,h:s[1]/10}]; }
   const own=S.sizes.filter(s=>+s.w>0&&+s.h>0).map(s=>({w:+s.w*k,h:+s.h*k}));
   if(own.length) return own;
