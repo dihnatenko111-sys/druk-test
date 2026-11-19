@@ -442,3 +442,145 @@ function drawLayout(L){
   for(let i=0;i<Math.min(L.n,4);i++) out+=one(L.SH,L.SW,L.rects.grid?fromGrid(L.rects.grid,L.rects.n,4000,i):L.rects.filter(r=>r.s===i),`лист ${i+1}`,i===L.n-1&&L.lastCounted<L.SH?L.lastH:null);
   return out+(L.n>4?`<div style="font-size:12px;color:var(--muted)">+ ще ${L.n-4} листів</div>`:'');
 }
+
+/* =====================================================================
+   СПІЛЬНЕ СХОВИЩЕ: сайт і адмінка працюють з одними даними.
+   Зараз — у пам'яті браузера (localStorage); у робочій версії — база на сервері.
+   ===================================================================== */
+const DAY=864e5, NOW=new Date();
+const dt=(off,h=10,m=0)=>{ const d=new Date(NOW.getTime()+off*DAY); d.setHours(h,m,0,0); return d; };
+const p2=n=>String(n).padStart(2,'0');
+const dstr=d=>`${p2(d.getDate())}.${p2(d.getMonth()+1)}.${d.getFullYear()}`;
+const tstr=d=>`${p2(d.getHours())}:${p2(d.getMinutes())}`;
+const DB_KEY='druk_db_v1';
+const RE_DATE=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
+
+// каталог: усе, що редагується в налаштуваннях
+function collectCatalog(){ return {CATS,ORDER,OPT,CFG:{...CFG,level:undefined},Q,TERMS}; }
+function applyCatalog(c){
+  if(!c) return;
+  const sync=(dst,src)=>{ for(const k of Object.keys(dst)) if(!(k in src)) delete dst[k]; Object.assign(dst,src); };
+  const when={}; for(const k in OPT) if(OPT[k].when) when[k]=OPT[k].when; // умови показу опцій — у коді
+  sync(CATS,c.CATS); sync(OPT,c.OPT); for(const k in when) if(OPT[k]) OPT[k].when=when[k];
+  const lvl=CFG.level; sync(CFG,c.CFG); CFG.level=lvl; sync(Q,c.Q); sync(TERMS,c.TERMS);
+  ORDER.splice(0,ORDER.length,...c.ORDER); LCACHE.clear();
+}
+function loadDB(){
+  let db=null;
+  try{ const raw=localStorage.getItem(DB_KEY); if(raw) db=JSON.parse(raw,(k,v)=>typeof v==='string'&&RE_DATE.test(v)?new Date(v):v); }catch(e){}
+  if(!db||db.v!==1) return seedDB();
+  applyCatalog(db.cat);
+  for(const k of ['gen','bon','tickets']) db[k]=db[k]||{};
+  return db;
+}
+function saveDB(db,withCatalog){
+  if(withCatalog||!db.cat) db.cat=collectCatalog();
+  try{ localStorage.setItem(DB_KEY,JSON.stringify(db)); }catch(e){}
+}
+// макети готові: є хоч один, і всі актуальні (не замінені) перевірені
+const filesOk=fs=>{ const cur=(fs||[]).filter(f=>f.st!=='old'); return cur.length>0&&cur.every(f=>f.st==='ok'); };
+
+// сума за прайсом: друк + відхід (або фіксована ціна формату)
+function calcSum(C,m,qk,w,h,n){
+  const fx=C.fixed&&m.fx&&m.fx[w+'x'+h]; if(fx&&fx[qk]!=null) return fx[qk]*n;
+  const L=layout(C,m,[{w:w/10,h:h/10}],n); if(!L) return 0;
+  return Math.round((L.printArea*(m.pr[qk]||0)+Math.max(0,L.used-L.printArea)*(m.waste??m.cost))*100)/100;
+}
+function seedDB(){
+  const RL=[
+    {id:'owner',n:'Власник',fixed:1,perms:[]},
+    {id:'admin',n:'Адмін',perms:['settings','levels','cost','allOrders','clients','prepress','production','money','reports','assign','staff']},
+    {id:'accountant',n:'Бухгалтер',perms:['cost','allOrders','clients','money','reports']},
+    {id:'mplus',n:'Менеджер+',perms:['cost','allOrders','clients','prepress','production','money','reports','assign']},
+    {id:'manager',n:'Менеджер',perms:['allOrders','clients','prepress','production','money']},
+    {id:'designer',n:'Дизайнер',perms:['prepress','production']},
+  ];
+  const STAFF=[
+    {id:1,login:'vasylkovskyi@druk.test',pass:'owner123',n:'Васільковський',role:'owner',online:true,seen:dt(0,9,2)},
+    {id:2,login:'admin@druk.test',pass:'admin123',n:'Ірина Бондар',role:'admin',online:true,seen:dt(0,8,55)},
+    {id:3,login:'mplus@druk.test',pass:'mplus123',n:'Марина Шевчук',role:'mplus',online:true,seen:dt(0,9,0)},
+    {id:4,login:'manager@druk.test',pass:'manager123',n:'Андрій Ткаченко',role:'manager',online:true,seen:dt(0,9,5)},
+    {id:5,login:'manager2@druk.test',pass:'manager123',n:'Дмитро Лисенко',role:'manager',online:true,seen:dt(0,8,30)},
+    {id:6,login:'designer@druk.test',pass:'design123',n:'Катерина Руденко',role:'designer',online:true,seen:dt(0,9,10)},
+    {id:7,login:'buh@druk.test',pass:'buh123',n:'Оксана Гриценко',role:'accountant',online:true,seen:dt(0,9,20)},
+  ];
+  const INK={sol:20,eco:30,eco2:40,q720:25,q1440:35,photo:45,uv:60,uvgl:75,uvmat:75,uvcw:90,uvw:70,uvwc:90,uvl:100,w1:60,w2:90,none:0};
+  const CL=[
+    {id:10245,n:'Олена Коваль',ph:'+380 67 123 45 67',em:'olena@example.com',type:'fop',co:'ФОП Коваль Олена Василівна',level:'regular',since:dt(-120)},
+    {id:10212,n:'Сергій Павленко',ph:'+380 50 222 33 44',em:'office@dvir.example',type:'company',co:'ТОВ «Рекламний двір»',level:'agency',since:dt(-400)},
+    {id:10301,n:'Максим Гончар',ph:'+380 93 555 12 12',em:'max.g@example.com',type:'person',co:'',level:'retail',since:dt(-3)},
+    {id:10188,n:'Ольга Мороз',ph:'+380 66 700 80 90',em:'zerno@example.com',type:'fop',co:'ФОП Мороз О. І. (кав’ярня «Зерно»)',level:'partner',since:dt(-260)},
+    {id:10330,n:'Наталія Яковенко',ph:'+380 97 404 04 04',em:'n.yakovenko@example.com',type:'person',co:'',level:'retail',since:dt(-1)},
+  ];
+  const LEDGER=[
+    {c:10245,d:dt(-15,9,30),t:'Поповнення балансу карткою',s:5000},{c:10245,d:dt(-14,16,50),t:'Оплата замовлення №47950',s:-2310.5},
+    {c:10245,d:dt(-12,12,35),t:'Оплата замовлення №47988',s:-1188},{c:10245,d:dt(-7,11,0),t:'Оплата за рахунком СФ-3074',s:2000},
+    {c:10245,d:dt(-6,14,5),t:'Оплата замовлення №48101',s:-1146.3},{c:10245,d:dt(-3,10,25),t:'Оплата замовлення №48152',s:-1912},
+    {c:10245,d:dt(-2,10,0),t:'Поповнення балансу карткою',s:2500},{c:10245,d:dt(-1,12,3),t:'Оплата замовлення №48190',s:-1508.6},
+    {c:10212,d:dt(-30),t:'Оплата за рахунком СФ-3010',s:30000},{c:10212,d:dt(-20),t:'Оплата замовлення №48170',s:-6240},{c:10212,d:dt(-4),t:'Оплата замовлення №48226',s:-8790},{c:10212,d:dt(-2),t:'Оплата замовлення №48200',s:-3120},
+    {c:10188,d:dt(-10),t:'Поповнення балансу карткою',s:3000},{c:10188,d:dt(-1,15),t:'Оплата замовлення №48229',s:-1890},
+    {c:10330,d:dt(0,8,20),t:'Поповнення балансу карткою',s:1500},{c:10330,d:dt(0,8,22),t:'Оплата замовлення №48220',s:-1230},
+  ];
+  const INV=[
+    {n:'СФ-3121',c:10245,d:dt(0,9,45),o:[48231],s:1340.40,paid:false},
+    {n:'СФ-3119',c:10212,d:dt(-1,11,0),o:[48234],s:4120,paid:false},
+    {n:'СФ-3074',c:10245,d:dt(-8,15,0),o:[],t:'Поповнення балансу',s:2000,paid:true},
+    {n:'СФ-3010',c:10212,d:dt(-31),o:[],t:'Поповнення балансу',s:30000,paid:true},
+  ];
+  function O(id,c,dOff,cat,mi,qk,w,h,tir,term,readyOff,st,who,x={}){
+    const C=CATS[cat], m=C.mats[mi]; if(x.sum==null) x.sum=calcSum(C,m,qk,w,h,tir*(x.kits||1));
+    return {id,c,d:dt(dOff,10+(id%8),id%60),cat,mi,mat:m,qk,w,h,tir,kits:x.kits||1,term,ready:dt(readyOff,18),st,who,
+      name:m.n,opts:x.opts||[],sum:x.sum,paid:x.paid??(['paid','print','ready','sent','done'].includes(st)?x.sum:0),
+      files:x.files||[],deliv:x.deliv||'self',ttn:x.ttn||'',rework:x.rework||0,reworkReq:!!x.reworkReq,fixReason:x.fix||'',
+      thread:x.thread||[],log:[{d:dt(dOff,10+(id%8),id%60),t:'Замовлення створено клієнтом'}],title:x.title||''};
+  }
+  const ORD=[
+    O(48234,10212,0,'film',0,'eco',1000,500,20,'Стандарт 1 день',1,'check',null,{files:[{n:'logo_stickers_1000x500.pdf',st:'wait',at:dt(0,9,15)}],opts:['Плотерна порізка: проста'],deliv:'np'}),
+    O(48233,10301,0,'banner',1,'sol',2000,1000,1,'Стандарт 1 день',2,'new',null,{opts:['Порізка: в заданому розмірі','Люверсовка по кутам']}),
+    O(48231,10245,0,'banner',0,'sol',3000,1000,2,'Стандарт 1 день',1,'check',4,{files:[{n:'banner_3000x1000.pdf',st:'wait',at:dt(0,9,40)}],opts:['Порізка: в заданому розмірі','Люверсовка по периметру, 10 мм, крок 300 мм'],deliv:'np'}),
+    O(48229,10188,-1,'paper',0,'sol',1200,1800,10,'Стандарт 1 день',0,'paid',3,{files:[{n:'menu_poster.pdf',st:'ok'}],opts:['Порізка в розмір']}),
+    O(48226,10212,-4,'banner',1,'sol',6000,3000,1,'Стандарт 1 день',-1,'print',5,{files:[{n:'fasad_6x3.pdf',st:'ok'}],opts:['Зпаювання частин','Люверсовка по периметру, крок 300 мм','Зпаювання підворота'],deliv:'np'}),
+    O(48220,10330,0,'posters',0,'eco',594,841,30,'Стандарт 1 день',1,'paid',null,{files:[{n:'tablychky_kabinety.pdf',st:'ok'}]}),
+    O(48217,10245,-1,'film',1,'eco',500,700,10,'Стандарт 1 день',1,'fix',3,{kits:2,files:[{n:'stickers_v1.pdf',st:'bad',reason:'Текст ближче ніж 5 мм до лінії порізки; шрифти не переведені в криві.'},{n:'stickers_2.pdf',st:'ok'}],opts:['Плотерна порізка: проста, 2,4 м пог./шт'],fix:'Текст ближче ніж 5 мм до лінії порізки; шрифти не переведені в криві.',
+      thread:[{d:dt(-1,16,30),from:'Препрес',t:'Макет stickers_v1.pdf повернено на виправлення…'},{d:dt(-1,16,50),from:'Клієнт',t:'А якщо відступ 3 мм — це критично?'},{d:dt(-1,17,5),from:'Препрес',t:'Так, порізка має допуск ±1,5 мм. Рекомендуємо 5 мм.'}]}),
+    O(48215,10188,-1,'film',2,'eco',600,600,4,'Стандарт 1 день',1,'check',6,{reworkReq:true,files:[{n:'zerno_logo.jpg',st:'bad',reason:'Низька роздільна здатність (72 dpi) для 1440 dpi'}],opts:['Плотерна порізка: проста'],
+      thread:[{d:dt(-1,12),from:'Клієнт',t:'Замовляю доопрацювання — зробіть, будь ласка, векторний логотип.'}]}),
+    O(48200,10212,-3,'paper',0,'eco',1200,1800,8,'Стандарт 1 день',-1,'ready',4,{files:[{n:'citylights_x8.pdf',st:'ok'}],deliv:'np'}),
+    O(48190,10245,-2,'paper',0,'eco',1200,1800,4,'Стандарт 1 день',0,'print',4,{files:[{n:'citylight_1200x1800.tif',st:'ok'}],opts:['Порізка в розмір'],deliv:'np'}),
+    O(48152,10245,-3,'posters',1,'sol',1200,1800,5,'Стандарт 1 день',-1,'ready',3,{files:[{n:'tablychky.pdf',st:'ok'}]}),
+    O(48101,10245,-6,'canvas',0,'eco2',600,900,1,'Стандарт 1 день',-2,'sent',4,{files:[{n:'kartyna.jpg',st:'ok'}],deliv:'np',ttn:'20450912345678'}),
+    O(48170,10212,-20,'banner',1,'sol',4000,2000,3,'Стандарт 1 день',-19,'done',3,{files:[{n:'tents.pdf',st:'ok'}],deliv:'np',ttn:'20450900000077'}),
+    O(47988,10245,-12,'banner',1,'eco',800,1800,2,'Стандарт 1 день',-11,'done',4,{files:[{n:'xbanner.pdf',st:'ok'}],deliv:'np',ttn:'20450900011122'}),
+    O(47950,10245,-14,'banner',5,'sol',6000,3000,1,'Стандарт 1 день',-12,'done',5,{files:[{n:'fasad_mesh.pdf',st:'ok'}]}),
+    O(47911,10245,-16,'film',6,'eco',1200,900,3,'Стандарт 1 день',-15,'cancel',null,{}),
+  ];
+  const ord=id=>ORD.find(o=>o.id==id);
+  LEDGER.forEach(x=>{ const m=/Оплата замовлення №(\d+)/.exec(x.t), o=m&&ord(m[1]); if(o) x.s=-o.sum; });
+  for(const c of CL){ const b=LEDGER.filter(x=>x.c===c.id).reduce((a,x)=>a+x.s,0); if(b<0){ const t=LEDGER.find(x=>x.c===c.id&&x.s>0); if(t) t.s+=Math.ceil(-b/500)*500+500; } }
+  INV.forEach(v=>{ if(v.o.length) v.s=v.o.reduce((a,id)=>a+(ord(id)?ord(id).sum:0),0); });
+  const ph=(label,h)=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${h},70%,72%)"/><stop offset="1" stop-color="hsl(${h+40},70%,52%)"/></linearGradient></defs><rect width="400" height="300" fill="url(#g)"/><text x="200" y="160" font-family="sans-serif" font-size="22" fill="white" text-anchor="middle">${label}</text></svg>`);
+  const TEXTS=[
+    {t:'Інструкція по оформленню замовлення',where:'info',body:'1. Оберіть продукт і розмір.\n2. Вкажіть опції, матеріал і якість друку.\n3. Натисніть на ціну в таблиці, завантажте макет і оплатіть.',photos:[{src:ph('Крок 1 — розмір',230),cap:'Вибір розміру'},{src:ph('Крок 2 — фільтр',260),cap:'Матеріал і якість'},{src:ph('Крок 3 — ціна',290),cap:'Клік по ціні'}]},
+    {t:'Терміни друку',where:'info',body:'Термін рахується з моменту перевірки макета й оплати. Неділя — вихідний.',photos:[]},
+    {t:'Якість друку',where:'info',body:'720 dpi — для вуличної реклами, 1440 dpi — для інтер’єру, Фото — максимальна деталізація.',photos:[{src:ph('720 dpi',200),cap:'720 dpi з відстані 3 м'},{src:ph('1440 dpi',170),cap:'1440 dpi — інтер’єр'},{src:ph('Фото',140),cap:'Фотодрук'}]},
+    {t:'Ширина матеріалів та друку',where:'info',body:'Ширини рулонів і розміри листів підставляються з налаштувань матеріалів автоматично.',photos:[]},
+    {t:'Зразки матеріалів з друком',where:'info',body:'Так виглядають матеріали після друку.',photos:[{src:ph('Банер 440',10),cap:'Банер 440 г/м² ламінат'},{src:ph('Плівка Oracal',30),cap:'Плівка глянцева Oracal'},{src:ph('City-light',50),cap:'Папір City-light 150'}]},
+    {t:'Публічна оферта',where:'page',body:'',photos:[]},
+    {t:'Умови використання',where:'page',body:'',photos:[]},
+  ];
+  const T=(id,list)=>{ const o=ord(id); if(o) o.thread=list; };
+  T(48231,[{id:7,d:dt(0,9,41),from:'Система',t:'Замовлення №48231 прийнято. Макет передано на перевірку — зазвичай це до 30 хвилин у робочий час.'}]);
+  T(48217,[{id:6,d:dt(-1,16,30),from:'Препрес',fix:true,t:'Макет stickers_v1.pdf повернено на виправлення. Текст ближче ніж 5 мм до лінії порізки; шрифти не переведені в криві. Завантажте виправлений файл або замовте доопрацювання.'},
+    {d:dt(-1,16,50),from:'Клієнт',t:'А якщо відступ 3 мм — це критично?'},{id:8,d:dt(-1,17,5),from:'Препрес',read:true,t:'Так, порізка має допуск ±1,5 мм, текст може зачепити. Рекомендуємо 5 мм.'}]);
+  T(48190,[{id:5,d:dt(-1,12,4),from:'Бухгалтерія',read:true,t:`Оплату ${fmt(ord(48190).sum)} грн отримано. Замовлення №48190 передано в друк.`}]);
+  T(48152,[{id:4,d:dt(-1,17,50),from:'Склад',read:true,t:'Замовлення №48152 готове. Забрати можна на складі.'}]);
+  T(48101,[{id:3,d:dt(-2,14,10),from:'Доставка',read:true,t:'Замовлення №48101 відправлено Новою Поштою. ТТН 20450912345678.'}]);
+  T(47988,[{id:2,d:dt(-11,18,20),from:'Менеджер',read:true,arch:true,t:'Дякуємо за замовлення! Будемо раді вашому відгуку про якість друку.'}]);
+  T(47911,[{id:1,d:dt(-15,9,0),from:'Система',read:true,arch:true,t:'Замовлення №47911 скасовано на ваш запит.'}]);
+  Object.assign(CL.find(c=>c.id===10245),{pass:'client123',code:'3123456789',addr:'м. Київ, вул. Прикладна, 1, оф. 5',notify:{email:true,sms:false,news:false},
+    recips:[{n:'Олена Коваль',ph:'+380 67 123 45 67',city:'Київ',wh:'Відділення №25'},{n:'Ігор Мельник',ph:'+380 50 765 43 21',city:'Львів',wh:'Поштомат №3105'}]});
+  const bon={10245:[{d:dt(-20,10,0),t:'Вітальні бонуси за реєстрацію',s:50},{d:dt(-12,18,0),t:'Нараховано за замовлення',o:47950,s:69.32},{d:dt(-11,18,0),t:'Нараховано за замовлення',o:47988,s:35.64},
+    {d:dt(-3,10,25),t:'Списано при оплаті',o:48152,s:-62.21},{d:dt(-2,18,0),t:'Нараховано за замовлення',o:48101,s:34.39},{d:dt(-1,18,0),t:'Нараховано за замовлення',o:48152,s:57.36}]};
+  const tickets={10245:[{id:311,d:dt(-13,11,0),subj:'Відтінок синього на банері',o:47950,st:'Відповідь надано'},{id:298,d:dt(-30,15,0),subj:'Як підготувати макет для висічки?',st:'Закрито'}]};
+  return {v:1,orders:ORD,clients:CL,ledger:LEDGER,inv:INV,staff:STAFF,roles:RL,texts:TEXTS,ink:INK,gen:{},bon,tickets};
+}

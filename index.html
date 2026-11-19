@@ -7,7 +7,7 @@
 <title>Широкоформатний друк</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="app.css?v=3">
 <style>
 /* Вхідна сторінка тестової версії: дві картки-входи і тестові доступи. Кольори — з app.css */
 .start{max-width:960px;margin:0 auto;padding-block:40px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:24px}
@@ -36,7 +36,7 @@
 <main class="start">
   <div class="intro">
     <h1>Широкоформатний друк — тестова версія</h1>
-    <p class="lead">Сайт для клієнтів з калькулятором і особистим кабінетом, а також адмінка з CRM для команди. Дані тестові: зміни зберігаються до перезавантаження сторінки.</p>
+    <p class="lead">Сайт для клієнтів з калькулятором і особистим кабінетом, а також адмінка з CRM для команди. Сайт і адмінка пов’язані: замовлення з сайту одразу з’являється в адмінці, а ціни, статуси й повідомлення з адмінки — на сайті. Дані тестові й зберігаються у вашому браузері.</p>
   </div>
 
   <div class="doors">
@@ -67,7 +67,11 @@
       </tbody>
     </table></div>
   </section>
+  <p class="note"><button class="btn" id="resetDb" type="button">Скинути тестові дані</button> <span id="resetMsg"></span></p>
   <p class="note">На сторінці входу в адмінку можна натиснути рядок у таблиці доступів — логін і пароль підставляться самі.</p>
 </main>
+<script>
+document.getElementById('resetDb').addEventListener('click',()=>{ try{ localStorage.removeItem('druk_db_v1'); sessionStorage.clear(); }catch(e){} document.getElementById('resetMsg').textContent='Дані повернуто до початкових.'; });
+</script>
 </body>
 </html>
