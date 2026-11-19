@@ -471,6 +471,8 @@ function loadDB(){
   if(!db||db.v!==1) return seedDB();
   applyCatalog(db.cat);
   for(const k of ['gen','bon','tickets']) db[k]=db[k]||{};
+  // оновлення збережених даних: роль «Поліграфіст» додано пізніше
+  if(!db.mig1){ db.mig1=1; if(!db.roles.some(r=>r.id==='printer')){ db.roles.push({id:'printer',n:'Поліграфіст',perms:['production']}); db.staff.push({...({id:8,login:'printer@druk.test',pass:'print123',n:'Богдан Кравець',role:'printer',online:true,seen:dt(0,8,45)}),id:Math.max(...db.staff.map(x=>x.id))+1}); } }
   return db;
 }
 function saveDB(db,withCatalog){
@@ -494,6 +496,7 @@ function seedDB(){
     {id:'mplus',n:'Менеджер+',perms:['cost','allOrders','clients','prepress','production','money','reports','assign']},
     {id:'manager',n:'Менеджер',perms:['allOrders','clients','prepress','production','money']},
     {id:'designer',n:'Дизайнер',perms:['prepress','production']},
+    {id:'printer',n:'Поліграфіст',perms:['production']},
   ];
   const STAFF=[
     {id:1,login:'vasylkovskyi@druk.test',pass:'owner123',n:'Васільковський',role:'owner',online:true,seen:dt(0,9,2)},
@@ -503,6 +506,7 @@ function seedDB(){
     {id:5,login:'manager2@druk.test',pass:'manager123',n:'Дмитро Лисенко',role:'manager',online:true,seen:dt(0,8,30)},
     {id:6,login:'designer@druk.test',pass:'design123',n:'Катерина Руденко',role:'designer',online:true,seen:dt(0,9,10)},
     {id:7,login:'buh@druk.test',pass:'buh123',n:'Оксана Гриценко',role:'accountant',online:true,seen:dt(0,9,20)},
+    {id:8,login:'printer@druk.test',pass:'print123',n:'Богдан Кравець',role:'printer',online:true,seen:dt(0,8,45)},
   ];
   const INK={sol:20,eco:30,eco2:40,q720:25,q1440:35,photo:45,uv:60,uvgl:75,uvmat:75,uvcw:90,uvw:70,uvwc:90,uvl:100,w1:60,w2:90,none:0};
   const CL=[
@@ -582,5 +586,5 @@ function seedDB(){
   const bon={10245:[{d:dt(-20,10,0),t:'Вітальні бонуси за реєстрацію',s:50},{d:dt(-12,18,0),t:'Нараховано за замовлення',o:47950,s:69.32},{d:dt(-11,18,0),t:'Нараховано за замовлення',o:47988,s:35.64},
     {d:dt(-3,10,25),t:'Списано при оплаті',o:48152,s:-62.21},{d:dt(-2,18,0),t:'Нараховано за замовлення',o:48101,s:34.39},{d:dt(-1,18,0),t:'Нараховано за замовлення',o:48152,s:57.36}]};
   const tickets={10245:[{id:311,d:dt(-13,11,0),subj:'Відтінок синього на банері',o:47950,st:'Відповідь надано'},{id:298,d:dt(-30,15,0),subj:'Як підготувати макет для висічки?',st:'Закрито'}]};
-  return {v:1,orders:ORD,clients:CL,ledger:LEDGER,inv:INV,staff:STAFF,roles:RL,texts:TEXTS,ink:INK,gen:{},bon,tickets};
+  return {v:1,mig1:1,orders:ORD,clients:CL,ledger:LEDGER,inv:INV,staff:STAFF,roles:RL,texts:TEXTS,ink:INK,gen:{},bon,tickets};
 }

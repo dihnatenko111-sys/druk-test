@@ -7,7 +7,7 @@
 <title>Адмінка друку</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=3">
+<link rel="stylesheet" href="app.css?v=4">
 <style>
 /* ---------- адмінка ---------- */
 .atop{display:flex;align-items:center;gap:16px;padding:12px 24px;flex-wrap:wrap}
@@ -109,7 +109,7 @@ select.ed{padding-right:24px;background-position:right 8px center}
 <div class="alay"><nav class="side" id="side"></nav><main class="amain" id="app"></main></div>
 <div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
 
-<script src="shared.js?v=3"></script>
+<script src="shared.js?v=4"></script>
 <script>
 /* =====================================================================
    АДМІНКА + CRM. Тестові дані, в пам'яті сторінки.
@@ -351,7 +351,7 @@ function pOrders(){
    ===================================================================== */
 function pOrder(id){
   const o=ord(id); if(!o){ app.innerHTML=pageH('Замовлення не знайдено'); return; }
-  if(!can('allOrders')&&o.who!==meId){ app.innerHTML=noAccess(); return; }
+  if(!can('allOrders')&&o.who!==meId&&!(can('production')&&['paid','print','ready'].includes(o.st))){ app.innerHTML=noAccess(); return; }
   const c=cl(o.c), lv=CFG.levels.find(l=>l.id===c.level), k=costOf(o), mine=o.who===meId;
   const nx=NEXT[o.st].filter(s=>!(s==='sent'&&o.deliv==='self')&&!(s==='done'&&o.st==='ready'&&o.deliv!=='self'));
   const stBtn=s=>{ const block=s==='paid'&&!isPaid(o)?'Клієнт ще не оплатив':s==='paid'&&!layoutsOk(o)?'Не всі макети перевірені':s==='sent'&&!o.ttn?'Вкажіть ТТН':'';
@@ -422,7 +422,7 @@ function pPrepress(){
    ===================================================================== */
 function pProduction(){
   if(!can('production')){ app.innerHTML=noAccess(); return; }
-  const jobs=visibleOrders().filter(o=>['paid','print'].includes(o.st)).map(o=>({o,k:costOf(o)})).filter(j=>j.k);
+  const jobs=ORD.filter(o=>['paid','print'].includes(o.st)).map(o=>({o,k:costOf(o)})).filter(j=>j.k);
   const groups={};
   for(const j of jobs){ const L=j.k.L, key=`${j.o.name} · ${L.kind==='roll'?'рулон '+L.W+' см':'лист '+L.SW+'×'+L.SH+' см'}`; (groups[key]=groups[key]||[]).push(j); }
   app.innerHTML=pageH('Черга виробництва',`<span class="muted" style="font-size:13px;align-self:center">${jobs.length} замовлень · ${fmt1(jobs.reduce((a,j)=>a+j.k.L.printArea,0))} м² друку</span>`)+
