@@ -384,3 +384,16 @@ footer .tel{font-size:22px;color:#fff;font-weight:700}
 :root[data-theme="dark"]{--gray-bg:#1e2638; --gray-fg:#a3aec2; --amber-bg:#3b2a0c; --amber-fg:#fcd34d; --red-bg:#3a1820; --red-fg:#fca5a5;
     --blue-bg:#14284a; --blue-fg:#93c5fd; --indigo-bg:#1d2446; --indigo-fg:#a5b4fc; --green-bg:#0f2f22; --green-fg:#86efac;
     --cyan-bg:#0c2c33; --cyan-fg:#67e8f9; color-scheme:dark;}
+
+/* ---------- сторінка продукту: підсумок збоку ---------- */
+.cols.prod{grid-template-columns:minmax(0,1fr) 320px}
+.side-kv{grid-template-columns:92px minmax(0,1fr);font-size:13.5px}
+.side-tir{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0;font-size:13.5px;color:var(--muted)}
+.side-tir .stepper input{width:70px}
+.side-sum{display:grid;gap:2px;border-top:1px solid var(--line);padding-top:12px;margin-bottom:12px}
+.side-sum span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.side-sum b{font-size:26px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.side-sum small{color:var(--muted);font-size:13px}
+.ptbl td.c.sel{background:var(--accent);color:var(--on-accent)}
+@media (max-width:900px){ .cols.prod{grid-template-columns:minmax(0,1fr)} }
+.lnk{color:var(--accent);font-weight:600;font-size:13px;white-space:nowrap}

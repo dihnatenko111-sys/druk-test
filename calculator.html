@@ -7,7 +7,7 @@
 <title>Широкоформатний друк</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=5">
+<link rel="stylesheet" href="app.css?v=6">
 </head>
 <body>
 
@@ -31,7 +31,7 @@
 <aside class="drawer" id="drawer"></aside>
 <div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
 
-<script src="shared.js?v=5"></script>
+<script src="shared.js?v=6"></script>
 <script>
 /* =====================================================================
    РЕНДЕР
@@ -40,8 +40,26 @@ const $=s=>document.querySelector(s);
 const app=$('#app');
 
 const crumbs=extra=>`<div class="crumbs"><a data-go="">Оформлення нового замовлення</a><span>/</span>${extra?`<a data-go="">Широкоформатний друк</a><span>/</span>${extra}`:'Широкоформатний друк'}</div>
-  <div class="tabs"><a>Продукти</a><a class="on" data-go="">Широкоформатний друк</a><a title="Обране">☆</a></div>`;
+  <div class="tabs"><a class="${VIEW==='products'?'on':''}" data-go="products">Продукти</a><a class="${VIEW==='products'?'':'on'}" data-go="">Широкоформатний друк</a><a title="Обране">☆</a></div>`;
 
+let VIEW='';
+/* ---------- вкладка «Продукти»: усі стандартні розміри виробів з ціною «від» ---------- */
+function fromPrice(c,z){ // найнижча ціна за 1 шт серед доступних матеріалів і якостей
+  let best=null;
+  for(const m of c.mats||[]){ if(m.na) continue; for(const k of c.q){ if(m.pr[k]==null&&!(m.fx&&m.fx[z[0]+'x'+z[1]]&&m.fx[z[0]+'x'+z[1]][k]!=null)) continue;
+    if(c.fixed&&!(m.fx&&m.fx[z[0]+'x'+z[1]]&&m.fx[z[0]+'x'+z[1]][k]!=null)) continue;
+    const v=calcSum(c,m,k,z[0],z[1],1); if(v>0&&(best==null||v<best)) best=v; } }
+  return best;
+}
+function renderProducts(){
+  const cats=ORDER.filter(id=>!CATS[id].hidden&&CATS[id].kind!=='form');
+  app.innerHTML=crumbs()+cats.map(id=>{ const c=CATS[id], vids=c.kind==='stand'?c.vids:[null];
+    const rows=vids.flatMap((v,vi)=>(v?v.sizes:c.std).map((z,i)=>{ const name=(v?v.n+' ':'')+(v?(z[3]||''):(z[2]||'')), pr=c.kind==='stand'?z[2]:fromPrice(c,z);
+      return `<tr class="row" data-prod="${id}|${i}|${vi}"><td><b>${z[0]} × ${z[1]} мм</b></td><td>${esc(name.trim())||'—'}</td><td class="r">${fmt1(z[0]*z[1]/1e6)} м²</td><td class="r">${pr!=null?'від <b>'+fmt(pr)+'</b> грн':'<span class="muted">за запитом</span>'}</td><td class="r"><span class="lnk">Розрахувати →</span></td></tr>`; }));
+    return `<div class="card flush"><div class="bar"><b style="font-size:16px">${esc(c.n)}</b><span class="muted" style="font-size:13px">${esc(c.d||'')}</span><span class="grow"></span><a data-go="${id}">Свій розмір →</a></div>
+      <div class="tbl-wrap"><table class="tbl compact" style="min-width:560px"><thead><tr><th>Розмір</th><th>Назва</th><th class="r">Площа</th><th class="r">Ціна за 1 шт</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table></div></div>`; }).join('')+
+    `<p class="foot-note">Ціна «від» — найдешевший матеріал і якість друку для цього розміру, без додаткових послуг.</p>`;
+}
 function renderHome(){
   app.innerHTML=crumbs()+`<div class="tiles">${ORDER.filter(id=>!CATS[id].hidden).map(id=>{const c=CATS[id];return `<a class="tile" data-go="${id}"><div class="ico">${I[c.ico]}</div><b>${c.n}</b><span>${c.d}</span></a>`}).join('')}</div>`;
 }
@@ -59,15 +77,40 @@ function renderCustom(){
 }
 function renderProduct(){
   const c=curCat();
-  let h=crumbs(c.n)+`<div class="card title-card"><h1>${c.n}</h1></div>`+infoBlock();
+  // порядок: розмір → фільтр (матеріал, якість) → опції → комплекти → таблиця цін; праворуч закріплено підсумок
+  let h=crumbs(c.n)+`<div class="card title-card"><h1>${c.n}</h1></div>`+infoBlock()+`<div class="cols prod"><div>`;
   if(c.vids) h+=`<div class="card"><div class="card-h"><h2>Вид</h2></div><div class="vids">${c.vids.map((v,i)=>`<div class="vid ${i===S.vid?'on':''}" data-vid="${i}">${VIDS[v.ico]}${v.n}</div>`).join('')}</div></div>`;
-  h+=`<div class="card" id="sizeCard"></div>`;
+  h+=`<div class="card" id="sizeCard"></div><div class="card" id="filterCard"></div>`;
   if(c.opts.length) h+=`<div class="card" id="optCard"></div>`;
   if(c.kind!=='stand') h+=`<div class="card"><div class="kits"><h2>Комплектів</h2><div class="stepper"><button data-k="-1">−</button><input id="kits" type="number" min="1" value="${S.kits}"><button data-k="1">+</button></div><small>Замовлень з однаковими параметрами, але <b>різними макетами</b></small></div></div>`;
-  h+=`<div class="card" id="filterCard"></div><div class="card price" id="priceCard"></div>
-      <p class="foot-note">* кінцева вартість виробу може бути змінена після оформлення замовлення у випадку незручного розміру для комплектування</p>`;
+  h+=`<div class="card price" id="priceCard"></div>
+      <p class="foot-note">* кінцева вартість виробу може бути змінена після оформлення замовлення у випадку незручного розміру для комплектування</p>
+    </div><aside class="sticky"><div class="card" id="sideCard"></div></aside></div>`;
   app.innerHTML=h;
   renderSize(); renderOpts(); renderFilter(); renderPrice();
+}
+/* ---------- закріплений підсумок: що замовляють і скільки коштує ---------- */
+function sideKey(){
+  const c=curCat(), g=priceGroups(); if(!g||!g.length) return null;
+  const terms=TERMS[c.terms]; let k=S.sel&&S.sel.split('|');
+  let grp=k&&g.find(x=>x.mi===+k[0]&&x.qk===k[1]&&(x.li??0)===+k[2]); if(!grp){ grp=g[0]; k=null; }
+  const t=(k&&terms.find(t=>t.id===k[3]))||terms.find(t=>t.id==='d1')||terms[0];
+  return `${grp.mi}|${grp.qk}|${grp.li??0}|${t.id}|${Math.max(1,+(S.sideTir||(k&&k[4])||S.tir[0])||1)}`;
+}
+function renderSide(){
+  const box=$('#sideCard'); if(!box) return; const c=curCat(), key=sideKey();
+  const sz=c.kind==='stand'?`${c.vids[S.vid].n}, ${stdList()[S.std][0]} × ${stdList()[S.std][1]} мм`:curSizes().map(s=>`${fmt1(s.w*10)} × ${fmt1(s.h*10)} мм`).join('<br>')||'—';
+  document.querySelectorAll('td.c.sel').forEach(x=>x.classList.remove('sel'));
+  const head=`<div class="card-h"><h2>Ваше замовлення</h2></div>`, base=`<dt>Продукт</dt><dd>${c.n}${c.vids&&c.kind!=='stand'?' · '+c.vids[S.vid].n:''}</dd><dt>Розмір</dt><dd>${sz}</dd>`;
+  if(!key){ box.innerHTML=head+`<dl class="kv2 side-kv">${base}</dl><p class="muted" style="font-size:13px;margin:12px 0 0">Оберіть матеріал і якість друку у фільтрі — тут з’явиться ціна.</p>`; return; }
+  const [mi,qk,li,tid,tir]=key.split('|'), m=c.mats[+mi], t=TERMS[c.terms].find(x=>x.id===tid), p=price(c,m,qk,+li,t,+tir);
+  const cell=document.querySelector(`td.c[data-g="${key}"]`); if(cell) cell.classList.add('sel');
+  box.innerHTML=head+`<dl class="kv2 side-kv">${base}<dt>Матеріал</dt><dd>${m.n}${c.lam&&+li>0?' + ламінація '+c.lam[+li].n.toLowerCase():''}</dd><dt>Друк</dt><dd>${plain(Q[qk].n)}</dd>
+    <dt>Опції</dt><dd>${p&&p.o.lines.length?p.o.lines.map(l=>l[0]).join('<br>'):'—'}</dd>${S.kits>1?`<dt>Комплектів</dt><dd>${S.kits}</dd>`:''}<dt>Готовність</dt><dd>${t.n}${t.s?' '+t.s:''}, ${ready(t).txt.replace('на ','')}</dd></dl>
+   <div class="side-tir"><span>Тираж, шт</span><div class="stepper"><button data-st="-1" aria-label="Менше">−</button><input id="sideTir" type="number" min="1" value="${tir}"><button data-st="1" aria-label="Більше">+</button></div></div>
+   ${p?`<div class="side-sum"><span>До сплати</span><b>${fmt(p.total)} грн</b><small>${fmt(p.per)} грн за штуку</small></div><button class="btn pri" data-side-order="${key}" style="width:100%;height:46px">Оформити замовлення</button>`
+     :`<p class="muted" style="font-size:13px">Для цього розміру й матеріалу ціни немає — оберіть інший матеріал або розмір.</p>`}
+   <p class="muted" style="font-size:12px;margin:10px 0 0">Іншу комбінацію можна вибрати кліком по ціні в таблиці.</p>`;
 }
 
 function renderSize(){
@@ -186,6 +229,7 @@ function priceGroups(){
 }
 
 function renderPrice(){
+  setTimeout(renderSide,0);
   const c=curCat(); if(!$('#priceCard')) return;
   const groups=priceGroups();
   const terms=TERMS[c.terms].filter(t=>!S.f.terms.size||S.f.terms.has(t.id));
@@ -293,6 +337,8 @@ function go(id){ try{ history.pushState(null,'',id?'#'+id:location.pathname); }c
 function route(id){
   if(id==null) id=location.hash.slice(1);
   S.picked=null;
+  VIEW=id==='products'?'products':'';
+  if(VIEW){ S.cat=null; C.page=''; closeModal(); renderMenu(''); renderProducts(); window.scrollTo(0,0); return; }
   let [pg,arg]=id.split('/');
   // кабінет — тільки після входу; після входу повертаємо туди, куди йшли
   if(PAGES[pg]&&!AUTH&&!['login','page'].includes(pg)){ C.after=id; id=pg='login'; arg=undefined; try{ history.replaceState(null,'','#login'); }catch(e){} }
@@ -301,7 +347,7 @@ function route(id){
   C.page=''; renderMenu('');
   if(!CATS[id]){ S.cat=null; renderHome(); renderDrawer(); window.scrollTo(0,0); return; }
   if(S.cat!==id){
-    S.cat=id; S.vid=0; S.std=0; S.sizes=[]; S.kits=1; S.opts={}; S.standMode=0; S.termsOn=false;
+    S.sel=null; S.sideTir=0; S.cat=id; S.vid=0; S.std=0; S.sizes=[]; S.kits=1; S.opts={}; S.standMode=0; S.termsOn=false;
     S.f={mats:new Set(CATS[id].mats&&CATS[id].mats.length===1?[0]:[]),q:new Set(),lam:new Set(),terms:new Set()};
   }
   if(CATS[id].kind==='form') renderCustom(); else renderProduct();
@@ -339,7 +385,10 @@ document.addEventListener('click',e=>{
     if(S.f.mats.size&&S.f.q.size) S.termsOn=true;
     S.picked=null; renderFilter(); renderPrice(); renderDrawer(); return; }
   if(t.closest('#fReset')){ S.f={mats:new Set(curCat().mats.length===1?[0]:[]),q:new Set(),lam:new Set(),terms:new Set()}; S.termsOn=false; renderFilter(); renderPrice(); renderDrawer(); return; }
-  const cell=t.closest('td.c'); if(cell){ openOrder(cell.dataset.g); return; }
+  const pr=t.closest('[data-prod]'); if(pr){ const [cid,i,vi]=pr.dataset.prod.split('|'); go(cid); S.vid=+vi||0; S.std=+i; S.sizes=[]; renderProduct(); window.scrollTo(0,0); return; }
+  const cell=t.closest('td.c'); if(cell){ S.sel=cell.dataset.g; S.sideTir=+S.sel.split('|')[4]; renderSide(); return; }
+  const so=t.closest('[data-side-order]'); if(so){ openOrder(so.dataset.sideOrder); return; }
+  const stb=t.closest('[data-st]'); if(stb){ S.sideTir=Math.max(1,(+$('#sideTir').value||1)+ +stb.dataset.st); renderSide(); return; }
   if(t.closest('#xls')){ exportCsv(); return; }
 });
 app.addEventListener('input',e=>{
@@ -351,6 +400,7 @@ app.addEventListener('input',e=>{
 app.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='stdSel'){ S.std=+t.value; S.sizes=[]; renderSize(); refresh(true); return; }
+  if(t.id==='sideTir'){ S.sideTir=Math.max(1,Math.floor(+t.value)||1); renderSide(); return; }
   if(t.dataset.unit!=null){ const k=t.value==='mm'?10:0.1; S.sizes.forEach(s=>{ if(s.w!=='') s.w=+(s.w*k).toFixed(2); if(s.h!=='') s.h=+(s.h*k).toFixed(2); }); S.unit=t.value; renderSize(); refresh(); return; }
   if(t.dataset.o){ S.opts[t.dataset.o]=+t.value; refresh(true); return; }
   if(t.name==='sm'){ S.standMode=+t.value; refresh(); return; }
