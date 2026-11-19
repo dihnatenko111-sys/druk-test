@@ -420,7 +420,7 @@ const stdList=()=>{ const c=curCat(); return c.kind==='stand'?c.vids[S.vid].size
 function curSizes(){ // см
   const c=curCat(); const k=S.unit==='mm'?0.1:1;
   if(c.kind==='stand'){ const s=c.vids[S.vid].sizes[S.std]; return [{w:s[0]/10,h:s[1]/10}]; }
-  const own=S.sizes.filter(s=>+s.w>0&&+s.h>0).map(s=>({w:+s.w*k,h:+s.h*k}));
+  const own=S.sizes.filter(s=>+s.w>0&&+s.h>0).map(s=>{ const k=(s.u||S.unit)==='mm'?0.1:1; return {w:+s.w*k,h:+s.h*k}; }); // у кожного розміру свої одиниці
   if(own.length) return own;
   const s=c.std[S.std]; return s?[{w:s[0]/10,h:s[1]/10}]:[];
 }
