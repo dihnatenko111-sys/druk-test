@@ -6,26 +6,32 @@
    Розміри матеріалів — у сантиметрах; стандартні розміри виробів — у мм.
    ===================================================================== */
 const CFG = {
-  markup:0.30,      // стандартна націнка на собівартість обрізку
-  marginRoll:10,    // зазор під друк з кожного боку, рулон, см
+  // Прайс від 07.06.2026. Розрахунок: друк = площа виробу × ціна друку; відхід = (рулон × довжина − площа виробу) × ціна відходу.
+  nest:false,       // false — кожен виріб займає всю ширину рулону (як у робочій таблиці); true — тираж розкладається поруч
+  lenAdd:8,         // запас по довжині рулону на кожен виріб, см
+  marginRoll:5,     // поле під друк з кожного боку по ширині рулону, см
   marginSheet:1,    // те саме для листових, см
+  markup:0.30,      // націнка на відхід, якщо в матеріалу не задано ціну відходу
   leftoverMin:30,   // смуга листа від цього розміру — діловий залишок, см
   level:'retail',
-  levels:[{id:'retail',name:'Роздріб',d:0},{id:'regular',name:'Постійний',d:.05},{id:'partner',name:'Партнер',d:.10},{id:'agency',name:'Агенція',d:.15}],
-  volume:[{q:1,d:0},{q:5,d:.019},{q:30,d:.028},{q:100,d:.04},{q:500,d:.06}],  // знижка від тиражу
+  levels:[{id:'retail',name:'Базовий',d:0},{id:'regular',name:'Постійний',d:0},{id:'partner',name:'Партнер',d:0},{id:'agency',name:'Агенція',d:0}],
+  volume:[{q:1,d:0}],  // знижка від тиражу
   tirageList:[1,2,3,4,5,10,15,20,25,30,40,50,75,100,150,200,250,300,500,1000],
 };
 
 const Q = {
+  sol:{n:'Сольвент<br>540, 720 dpi',t:"Сольвентний друк 540 / 720 dpi\nВулична реклама: банери, плакати, бігборди"},
+  eco:{n:'ЕКО Сольвент<br>720, 1440 dpi',t:"Екосольвентний друк 720 / 1440 dpi\nІнтер'єр і близька відстань перегляду"},
+  eco2:{n:'ЕКО Сольвент<br>1440 dpi',t:'Екосольвентний друк 1440 dpi — максимальна деталізація'},
   q720:{n:'720 dpi',t:"СТАНДАРТ (екстер'єр)\nЗвичайна якість: сітілайт, вивіска"},
   q1440:{n:'1440 dpi',t:"ПРЕМІУМ (екстер'єр, інтер'єр)\nЗвичайна якість: плакат, наліпка"},
   photo:{n:'1440 Фото',t:"ФОТО друк (екстер'єр, інтер'єр)\nФотографічна якість відбитку"},
-  uv:{n:'1440 УФ<br>CMYK',t:"УФ друк (екстер'єр, інтер'єр)\nСтійка до стирання, вицвітання"},
+  uv:{n:'УФ друк<br>до 1,6 м',t:"УФ друк, ширина до 1,6 м\nСтійкий до стирання й вицвітання"},
   uvgl:{n:'1440 УФ CMYK<br>+ ГЛ лак',t:'УФ друк + Глянцевий лак'},
   uvmat:{n:'1440 УФ CMYK<br>+ МАТ лак',t:'УФ друк + Матовий лак'},
   uvcw:{n:'1440 УФ CMYK<br>+ WHITE',t:'УФ друк в 2-а шари CMYK + WHITE'},
-  uvw:{n:'1440 УФ<br>WHITE',t:'УФ друк WHITE'},
-  uvwc:{n:'1440 УФ WHITE<br>+ CMYK',t:'УФ друк в 2-а шари WHITE + CMYK'},
+  uvw:{n:'УФ друк<br>+ білий',t:'УФ друк на прозорій плівці з білим шаром'},
+  uvwc:{n:'УФ друк<br>+ білий + колір',t:'УФ друк на прозорій плівці: білий шар + колір'},
   uvl:{n:'1440 УФ<br>Шарами',t:'УФ шарами'},
   w1:{n:'WHITE',t:'УФ друк WHITE'},
   w2:{n:'WHITE<br>2-а шари',t:'УФ друк WHITE у 2 шари'},
@@ -33,41 +39,37 @@ const Q = {
 };
 
 const TERMS = {
-  std:[{id:'h3',n:'Експрес',s:'3 години',hours:3,k:1.23},{id:'d1',n:'Стандарт',s:'1 день',days:1,k:1},{id:'d2',n:'Економ',s:'2 дні',days:2,k:.95},{id:'d3',n:'Супер економ',s:'3 дні',days:3,k:.90}],
-  short:[{id:'d1',n:'Стандарт',s:'1 день',days:1,k:1},{id:'d2',n:'Економ',s:'2 дні',days:2,k:.95},{id:'d3',n:'Супер економ',s:'3 дні',days:3,k:.90}],
-  long:[{id:'d3',n:'3 дні',s:'',days:3,k:1},{id:'d4',n:'4 дні',s:'',days:4,k:.95},{id:'d5',n:'5 днів',s:'',days:5,k:.90}],
+  std:[{id:'d1',n:'Стандарт',s:'1 день',days:1,k:1}],
+  short:[{id:'d1',n:'Стандарт',s:'1 день',days:1,k:1}],
+  long:[{id:'d3',n:'3 дні',s:'',days:3,k:1}],
 };
 
 /* ---------- опції ---------- */
 // per: piece | perim (за м пог. периметра) | perimCm | area (м²) | pocket | perimTh (залежить від товщини)
 const OPT = {
   bannerTwo:{id:'two',l:'Друк з двох сторін',t:'select',c:[{l:'Ні'},{l:'Книгою на спільні люверси',k:2}]},
-  bannerCut:{id:'cut',l:'Порізка',t:'select',def:1,c:[
-    {l:'Ні — відвантаження в рулоні'},
-    {l:'Є — відвантаження в заданому розмірі',p:2,per:'perim',min:2},
-    {l:'Фігурна проста — квадрат, круг, овал, сердце',p:6,per:'perim',min:20},
-    {l:'Фігурна складна — зірка, фігура',p:10,per:'perim',min:30}]},
+  bannerCut:{id:'cut',l:'Порізка',t:'select',def:1,c:[{l:'Ні — відвантаження в рулоні'},{l:'Ручна порізка в розмір',p:8,per:'perim'}]},
   eyel:{id:'eyel',l:'Люверсовка',t:'select',c:[
     {l:'Ні'},{l:'По периметру',pos:'trbl'},{l:'По міткам в макеті',pos:'trbl'},{l:'По кутам',pos:'c4'},
     {l:'По кутам та середині',pos:'c8'},{l:'Тільки зверху',pos:'t'},{l:'Тільки знизу',pos:'b'},
     {l:'Зверху та знизу',pos:'tb'},{l:'Зліва та справа',pos:'lr'}]},
   eyelType:{id:'eyelType',l:'Люверсовка',t:'select',sub:1,when:o=>o.eyel>0,c:[{l:'З підворотом країв'},{l:'Без підворота'},{l:'Без підворота з підкладкою під люверси'}]},
-  eyelDia:{id:'eyelDia',l:'Діаметр люверсів',t:'select',sub:1,when:o=>o.eyel>0,c:[{l:'10 мм — стандарт',ep:2.4},{l:'12 мм',ep:3}]},
+  eyelDia:{id:'eyelDia',l:'Люверси',t:'select',sub:1,when:o=>o.eyel>0,c:[{l:'Стандартні',ep:4.5}]},
   eyelStep:{id:'eyelStep',l:'Крок між люверсами',t:'select',sub:1,def:4,when:o=>o.eyel>0&&o.eyel!==3&&o.eyel!==4,
     c:[100,150,200,250,300,350,400,450,500].map(v=>({l:v+' мм'+(v===300?' — стандарт':''),step:v/10}))},
-  hem:{id:'hem',l:'Зпаювання підворота',t:'select',c:[{l:'Ні'},{l:'По периметру',p:12,per:'perim'}]},
+  hem:{id:'hem',l:'Пропайка швів (підворот)',t:'select',c:[{l:'Ні'},{l:'По периметру',p:80,per:'perim'}]},
   pocket:{id:'pocket',l:'Кишеня під трубу (100мм)',t:'select',c:[{l:'Ні'},
     ...[['Тільки зверху','t'],['Тільки знизу','b'],['Тільки зліва','l'],['Тільки справа','r'],['Зверху та знизу','tb'],['Зліва та справа','lr']].map(([l,s])=>({l,p:30,per:'pocket',sides:s}))]},
   backing:{id:'backing',l:'Підкладка',t:'select',c:[{l:'Ні'},{l:'Так',p:40,per:'area'}]},
 
-  filmCut:{id:'cut',l:'Порізка в розмір',t:'chips',c:[{l:'Ні'},{l:'Прямокутна',p:3,per:'perim',min:5},{l:'Фігурна проста — квадрат, круг, овал',p:8,per:'perim',min:15},{l:'Фігурна складна — зірка, фігура',p:14,per:'perim',min:25}]},
-  plot:{id:'plot',l:'Плотерна порізка',t:'chips',c:[{l:'Ні'},{l:'Так'}]},
+  filmCut:{id:'cut',l:'Порізка в розмір',t:'chips',c:[{l:'Ні'},{l:'Ручна порізка',p:8,per:'perim'}]},
+  plot:{id:'plot',l:'Висічка (плотерна порізка)',t:'chips',c:[{l:'Ні'},{l:'Так'}]},
   plotLen:{id:'plotLen',l:'Довжина лінії різання',t:'plotlen',sub:1,when:o=>o.plot===1},
-  plotCx:{id:'plotCx',l:'Складність порізки',t:'chips',sub:1,when:o=>o.plot===1,c:[{l:'Проста',pm:6},{l:'Складна',pm:10}]},
-  pick:{id:'pick',l:'Вибірка зайвої плівки',t:'chips',sub:1,when:o=>o.plot===1,c:[{l:'Ні'},{l:'Так',p:60,per:'area'}]},
-  mount:{id:'mount',l:'Монтажна плівка',t:'chips',sub:1,when:o=>o.plot===1,note:'Розрахунок вартості: min 0,3 пог. м, крок 0,1 пог. м',
-    c:[{l:'Ні'},{l:'З прикатуванням',p:55,per:'area'},{l:'Віддати окремо',p:45,per:'area'}]},
-  paperCut:{id:'cut',l:'Порізка в розмір',t:'chips',c:[{l:'Ні'},{l:'Прямокутна',p:2,per:'perim',min:5},{l:'Фігурна проста — квадрат, круг, овал',p:8,per:'perim',min:15},{l:'Фігурна складна — зірка, фігура',p:14,per:'perim',min:25},{l:'Трафарет',p:20,per:'perim',min:30}]},
+  plotCx:{id:'plotCx',l:'Плівка для висічки',t:'chips',sub:1,when:o=>o.plot===1,c:[{l:'Без ламінації',pm:5},{l:'З ламінацією',pm:10}]},
+  pick:{id:'pick',l:'Вибірка з плівки',t:'chips',sub:1,when:o=>o.plot===1,c:[{l:'Ні'},{l:'Проста',p:300,per:'area'},{l:'Складна',p:400,per:'area'}]},
+  mount:{id:'mount',l:'Монтажна плівка на висічку',t:'chips',sub:1,when:o=>o.plot===1,c:[{l:'Ні'},{l:'Так',p:150,per:'area'}]},
+  nakat:{id:'nakat',l:'Накатка плівки на ПВХ / композит',t:'chips',c:[{l:'Ні'},{l:'Так',p:120,per:'area'}]},
+  paperCut:{id:'cut',l:'Порізка в розмір',t:'chips',c:[{l:'Ні'},{l:'Ручна порізка',p:8,per:'perim'}]},
 
   sheetTwo:{id:'two',l:'Друк з 2-х боків',t:'select',c:[{l:'Ні'},{l:'Є',k:1.9}]},
   pvhCut:{id:'cut',l:'Порізка',t:'select',c:[{l:'Є — відвантаження в заданому розмірі',per:'perimTh',min:11},{l:'Фігурна проста — квадрат, коло, овал, серце',per:'perimTh',x:2.5,min:11},{l:'Фігурна складна — зірка, стерн, фігура',per:'perimTh',x:4,min:11},{l:'Трафарет',per:'perimTh',x:5,min:11}]},
@@ -80,78 +82,80 @@ const OPT = {
   tape:{id:'tape',l:'Двосторонній скотч',t:'select',c:[{l:'Ні'},{l:'Є — по периметру',p:9,per:'perim'}]},
   protect:{id:'protect',l:'Захисна плівка',t:'select',def:1,c:[{l:'Ні'},{l:'Так'}]},
 
-  frame:{id:'frame',l:'Підрамник',t:'select',when:(o,s)=>s.vid===0,c:[
-    {l:'Вид 1 — товщина 15 мм, ширина 27 мм',p:1.16,per:'perimCm'},{l:'Вид 2 — товщина 18 мм, ширина 40 мм',p:1.45,per:'perimCm'},
-    {l:'Вид 3 — товщина 22 мм, ширина 55 мм',p:1.85,per:'perimCm'},{l:'Вид 4 — товщина 40 мм, ширина 35 мм',p:2.3,per:'perimCm'}]},
-  stretch:{id:'stretch',l:'Натягування',t:'chips',def:1,when:(o,s)=>s.vid===0,c:[{l:'Стандартне'},{l:'Галерейне'},{l:'Студійне',p:44,per:'piece'}]},
+  frame:{id:'frame',l:'Рама',t:'select',when:(o,s)=>s.vid===0,c:[{l:'Рама дерев’яна для картин',p:60,per:'perim'}]},
+  stretch:{id:'stretch',l:'Натяжка',t:'chips',when:(o,s)=>s.vid===0,c:[{l:'Натяжка холста на раму',p:150,per:'area'}]},
   hang:{id:'hang',l:'Кріплення',t:'chips',when:(o,s)=>s.vid===0,c:[{l:'Ні'},{l:'Крокодил'},{l:'Підвіси',p:13.2,per:'piece'}]},
-  canvasCut:{id:'cut',l:'Порізка',t:'select',when:(o,s)=>s.vid===1,c:[{l:'Є — відвантаження в заданому розмірі',p:2,per:'perim',min:2}]},
+  canvasCut:{id:'cut',l:'Порізка',t:'select',when:(o,s)=>s.vid===1,c:[{l:'Ні'},{l:'Ручна порізка в розмір',p:8,per:'perim'}]},
 };
 
 /* ---------- категорії ---------- */
 const PVH_COST={1:90,2:150,3:220,4:280,5:340,6:420,8:540,10:650};
 const CATS = {
+  posters:{n:'Плакати й формати',d:'Плакати А0–А3, сітілайти, бігборди, скроли — ціна за штуку',kind:'roll',ico:'paper',terms:'std',big:'parts',fixed:1,
+    std:[[841,1189,'А0'],[594,841,'А1'],[420,594,'А2'],[297,420,'А3'],[1200,1800,'Сітілайт'],[6000,3000,'Бігборд'],[3140,2320,'Скрол']],
+    q:['sol','eco'],
+    mats:[
+      {n:'Папір City-light (білий)',t:'Папір City-light, білий',rolls:[125,160],waste:35,cost:35,pr:{sol:75,eco:115},
+        fx:{'841x1189':{sol:78,eco:120},'594x841':{sol:40,eco:60},'420x594':{sol:20,eco:30},'297x420':{sol:10,eco:15},'1200x1800':{sol:200,eco:250}}},
+      {n:'Папір Blueback',t:'Папір Blueback, задня сторона синя',rolls:[126,156],waste:20,cost:20,pr:{sol:45},
+        fx:{'841x1189':{sol:48},'594x841':{sol:24},'420x594':{sol:12},'297x420':{sol:6},'1200x1800':{sol:110},'6000x3000':{sol:600}}},
+      {n:'Поліман',t:'Поліман',rolls:[126,315],waste:0,cost:0,pr:{sol:210},fx:{'1200x1800':{sol:500},'3140x2320':{sol:1350}}},
+      {n:'Банер литий 440 г',t:'Банер литий 440 г/м²',rolls:[110, 127, 137, 160, 220, 250, 320],waste:80,cost:80,pr:{sol:160},fx:{'6000x3000':{sol:3400}}},
+    ],
+    opts:[]},
   banner:{n:'Банер',d:'Банерні вивіски, розтяжки, тенти, брандмауери…',kind:'roll',ico:'banner',terms:'std',big:'weld',
     std:[[800,1800,'Х-баннер'],[800,2000,'Roll-up'],[1000,2000],[1200,1800,'Сіті формат'],[1500,2500],[2300,2600,'Pop-up'],[3000,2000,'Press wall'],[6000,3000,'Бігборд']],
-    q:['q720','q1440','photo','uv','none'],
+    q:['sol','eco','uv'],
     mats:[
-      {n:'Банер 440 лам',t:'Банер 440 г/м² ламінат',rolls:[110,160,220,320],cost:40,pr:{q720:205,q1440:270,none:95}},
-      {n:'Банер 440 лит',t:'Банер 440 г/м² литий',rolls:[160,220,320],cost:55,pr:{q720:225,q1440:290,uv:300,none:110}},
-      {n:'Банер 510 лит',t:'Банер 510 г/м² литий',rolls:[220,320],cost:70,pr:{q720:250,q1440:315,uv:330,none:130}},
-      {n:'Сітка (Mesh)',t:'Сітка (Mesh)',rolls:[160,320],cost:75,pr:{q720:260,uv:340,none:140}},
+      {n:'Банер ламінований 440 г',t:'Банер ламінований 440 г/м²',rolls:[110, 127, 137, 160, 220, 250, 320],waste:70,cost:70,pr:{sol:150,eco:160}},
+      {n:'Банер литий 440 г',t:'Банер литий 440 г/м²',rolls:[110, 127, 137, 160, 220, 250, 320],waste:80,cost:80,pr:{sol:160,eco:175,uv:360}},
+      {n:'Банер литий 510 г',t:'Банер литий 510 г/м²',rolls:[110, 127, 137, 160, 220, 250, 320],waste:0,cost:0,pr:{},na:1},
+      {n:'Банер литий 440 г (Blockout)',t:'Банер литий 440 г/м², Blockout',rolls:[110, 127, 137, 160, 220, 250, 320],waste:0,cost:0,pr:{},na:1},
+      {n:'Банер литий 510 г (Back Lit)',t:'Банер литий 510 г/м², Back Lit',rolls:[110, 127, 137, 160, 220, 250, 320],waste:0,cost:0,pr:{},na:1},
+      {n:'Банерна сітка Mesh',t:'Банерна сітка Mesh',rolls:[220,250,320],waste:107.5,cost:107.5,pr:{sol:185}},
     ],
-    opts:['bannerTwo','bannerCut','eyel','eyelType','eyelDia','eyelStep','hem','pocket','backing']},
+    opts:['bannerCut','eyel','eyelType','eyelDia','eyelStep','hem']},
   film:{n:'Плівка',d:'Наліпки, плівка для обклеювання вітрин, вивісок, авто…',kind:'roll',ico:'film',terms:'std',big:'parts',
     std:[[210,297,'А4'],[297,420,'А3'],[420,594,'А2'],[594,841,'А1'],[841,1189,'А0'],[1200,1800,'Сіті формат']],
-    q:['q1440','photo','uv','uvgl','uvmat','uvcw','uvw','uvwc','uvl','none'],
-    lam:[{n:'Ні',t:'Немає ламінації',p:0},{n:'Глянцева',t:'Ламінація глянцева',p:75},{n:'Матова',t:'Ламінація матова',p:75},{n:'Підлогова Захисна',t:'Підлогова захисна Oraguard 250',p:160}],
+    q:['sol','eco','uv','uvw','uvwc'],
     mats:[
-      {n:'Плівка ГЛ Oracal',t:'Плівка глянцева Oracal (Orajet 3640)',rolls:[105,126,137,152],cost:60,pr:{q1440:330,photo:390,uv:380,uvgl:430,uvmat:430,none:150}},
-      {n:'Плівка МАТ Oracal',t:'Плівка матова Oracal (Orajet 3640)',rolls:[105,126,137,152],cost:60,pr:{q1440:330,photo:390,uv:380,uvgl:430,uvmat:430,none:150}},
-      {n:'Плівка прозора ГЛ Oracal',t:'Плівка прозора глянцева Oracal (Orajet 3640)',rolls:[126,137,152],cost:65,pr:{q1440:340,uv:390,uvcw:480,uvw:420,uvwc:480,uvl:560,none:160}},
-      {n:'Плівка прозора МАТ Oracal',t:'Плівка прозора матова Oracal (Orajet 3640)',rolls:[126,137,152],cost:65,pr:{q1440:340,uv:390,uvcw:480,uvw:420,uvwc:480,uvl:560,none:160}},
-      {n:'Плівка Легкознімна',t:'Плівка легкознімна Ritrama (Європа)',rolls:[126,137],cost:85,pr:{q1440:380,uv:420,none:200}},
-      {n:'Плівка Black Out',t:'Плівка Black Out Ritrama (Європа)',rolls:[126,137],cost:85,pr:{q1440:380,uv:420,none:200}},
-      {n:'Плівка One Way Vision',t:'Плівка перфорована One Way Vision',rolls:[137,152],cost:95,pr:{q1440:420,uv:450,none:220}},
-      {n:'Плівка Автомобільна',t:'Плівка автомобільна біла Oracal (Orajet 3651)',rolls:[126,137],cost:110,pr:{q1440:470,uv:500,none:250}},
-      {n:'Плівка прозора Автомобільна',t:'Плівка автомобільна прозора Oracal (Orajet 3651)',rolls:[126,137],cost:115,pr:{uv:520,uvcw:600,uvwc:600,none:260}},
-      {n:'Плівка Підлогова',t:'Плівка Підлогова Oracal (Orajet 3651)',rolls:[126,137],cost:110,pr:{q1440:470,uv:500}},
-      {n:'Плівка біла світловідбивна',t:'Плівка біла світловідбивна ORALITE 5400 010',rolls:[122],cost:300,pr:{uv:800,none:550}},
-      {n:'Плівка золото глянцева',t:'Плівка золото глянцева ORACAL 352 003',rolls:[100],cost:200,pr:{uv:650,uvcw:750,uvwc:750,none:420}},
-      {n:'Плівка хром глянцева',t:'Плівка хром глянцева ORACAL 352 001',rolls:[100],cost:200,pr:{uv:650,uvcw:750,uvwc:750,none:420}},
-      {n:'Плівка хром матова',t:'Плівка хром матова ORACAL 352 002',rolls:[100],cost:200,pr:{uv:650,uvcw:750,uvwc:750,none:420}},
-      {n:'Плівка хром глянцева браш',t:'Плівка хром глянцева браш ORACAL 352 907',rolls:[100],cost:220,pr:{uv:680,uvcw:780,none:450},na:1},
+      {n:'Плівка біла мат/глянець (Orajet 3640)',t:'Плівка біла матова / глянцева, Orajet 3640',rolls:[105,126,137,160],waste:100,cost:100,pr:{sol:180,eco:200,uv:360}},
+      {n:'Плівка біла з ламінацією (Orajet 3640)',t:'Плівка біла матова / глянцева з ламінацією, Orajet 3640',rolls:[105,126,137,160],waste:200,cost:200,pr:{sol:300,eco:320}},
+      {n:'Плівка прозора мат/глянець (Orajet 3640)',t:'Плівка прозора матова / глянцева, Orajet 3640',rolls:[105,126,137,160],waste:100,cost:100,pr:{sol:180,eco:200,uv:360,uvw:500,uvwc:650}},
+      {n:'Плівка прозора з ламінацією (Orajet 3640)',t:'Плівка прозора матова / глянцева з ламінацією, Orajet 3640',rolls:[105,126,137,160],waste:200,cost:200,pr:{sol:300,eco:320}},
+      {n:'Плівка Блекаут (Orajet 3641)',t:'Плівка Блекаут біла глянець, сірий клей, Orajet 3641',rolls:[105,126,137,160],waste:115,cost:115,pr:{sol:200,eco:220}},
+      {n:'Плівка Блекаут з ламінацією (Orajet 3641)',t:'Плівка Блекаут біла глянець з ламінацією, сірий клей, Orajet 3641',rolls:[105,126,137,160],waste:220,cost:220,pr:{sol:320,eco:340}},
+      {n:'Плівка перфорована (One Way Vision)',t:'Плівка перфорована One Way Vision',rolls:[106,127,152],waste:140,cost:140,pr:{sol:210,eco:230}},
+      {n:'Плівка кольорова для висічки (Orajet 641)',t:'Плівка Orajet 641 кольорова для висічки',rolls:[100],waste:300,cost:300,pr:{sol:400,eco:400}},
     ],
-    opts:['filmCut','plot','plotLen','plotCx','pick','mount']},
-  paper:{n:'Папір',d:'Афіши, плакати, постери, сітілайти, бігборди…',kind:'roll',ico:'paper',terms:'std',big:'parts',
+    opts:['filmCut','plot','plotLen','plotCx','pick','mount','nakat']},
+  paper:{n:'Папір',d:'Афіші, плакати, постери довільного розміру — ціна за м²',kind:'roll',ico:'paper',terms:'std',big:'parts',
     std:[[210,297,'А4'],[297,420,'А3'],[420,594,'А2'],[594,841,'А1'],[841,1189,'А0'],[1200,1800,'Сіті формат'],[6000,3000,'Бігборд']],
-    q:['q720','q1440','photo','uv','none'],
-    lam:[{n:'Ні',t:'Немає ламінації',p:0},{n:'Глянцева 80 мікрон',t:'Ламінація глянцева 80 мкм',p:70},{n:'Матова 80 мікрон',t:'Ламінація матова 80 мкм',p:70}],
+    q:['sol','eco'],
     mats:[
-      {n:'Папір Blue-back 120',t:'Папір Blue-back 120 г/м²',rolls:[91,106,160,320],cost:20,pr:{q720:110,q1440:150,uv:190,none:50}},
-      {n:'Папір City-light 150',t:'Папір City-light 150 г/м²',rolls:[106,137,160],cost:35,pr:{q720:150,q1440:190,photo:240,uv:230,none:80}},
-      {n:'Папір City-light 200',t:'Папір City-light 200 г/м²',rolls:[106,137,160],cost:45,pr:{q720:170,q1440:210,photo:260,uv:250,none:95}},
-      {n:'Poster paper 190',t:'Poster paper 190 г/м²',rolls:[91,106,137],cost:30,pr:{q1440:170,photo:220,uv:210,none:70}},
+      {n:'Папір City-light (білий)',t:'Папір City-light, білий',rolls:[125,160],waste:35,cost:35,pr:{sol:75,eco:115}},
+      {n:'Папір Blueback',t:'Папір Blueback, задня сторона синя',rolls:[126,156],waste:20,cost:20,pr:{sol:45}},
+      {n:'Поліман',t:'Поліман',rolls:[126,315],waste:0,cost:0,pr:{sol:210,eco:245}},
     ],
     opts:['paperCut']},
   custom:{n:'Індивідуальне замовлення',d:'Замовити прорахунок комплексного або нестандартного замовлення',kind:'form',ico:'custom'},
-  pvh:{n:'ПВХ',d:'Таблички, вказівники, вивіски, букви, планшети, ростові фігури…',kind:'sheet',ico:'sheet',terms:'std',
+  pvh:{hidden:1,n:'ПВХ',d:'Таблички, вказівники, вивіски, букви, планшети, ростові фігури…',kind:'sheet',ico:'sheet',terms:'std',
     std:[[150,150],[100,400],[200,150],[200,350],[500,150],[250,400],[200,600],[250,550],[300,900],[300,1200],[400,1200],[200,300],[300,1000],[400,800],[600,400],[800,600],[1000,750]],
     q:['uv','none'],qLabel:'Друк',
     mats:[1,2,3,4,5,6,8,10].map(t=>({n:`ПВХ ${t}мм`,t:`Спінений ПВХ ${t} мм`,sheet:[205,305],th:t,cost:PVH_COST[t],
       pr:{uv:Math.round(PVH_COST[t]*1.6+260),none:Math.round(PVH_COST[t]*1.6)}})),
     opts:['sheetTwo','pvhCut','hole','holePos','tape']},
-  foam:{n:'Пінокартон',d:'Таблички, вказівники, вивіски, букви, планшети, ростові фігури…',kind:'sheet',ico:'sheet',terms:'short',
+  foam:{hidden:1,n:'Пінокартон',d:'Таблички, вказівники, вивіски, букви, планшети, ростові фігури…',kind:'sheet',ico:'sheet',terms:'short',
     std:[[300,900],[300,1200],[400,1200],[300,800],[300,1000],[400,800],[400,300],[600,400],[800,600],[1000,750]],
     q:['uv','none'],qLabel:'Друк',
     mats:[{n:'Пінокартон 5 мм',t:'Пінокартон 5 мм',sheet:[140,300],cost:250,pr:{uv:560,none:400}}],
     opts:['sheetTwo','foamCut','tape']},
-  comp:{n:'Композит',d:'Таблички, вказівники, вивіски, букви, планшети, ростові фігури…',kind:'sheet',ico:'sheet',terms:'long',
+  comp:{hidden:1,n:'Композит',d:'Таблички, вказівники, вивіски, букви, планшети, ростові фігури…',kind:'sheet',ico:'sheet',terms:'long',
     std:[[250,400],[200,600],[250,550],[300,900],[300,1200],[400,1200],[300,800],[300,1000],[400,800],[400,300],[600,400]],
     q:['uv','none'],qLabel:'Друк',
     mats:[{n:'Композит білий 3мм',t:'Алюмінієвий композит білий 3 мм',sheet:[150,305],cost:480,pr:{uv:900,none:780}}],
     opts:['compCut','hole','holePos','tape']},
-  acril:{n:'Акрил',d:'Номерки, бірки, фотографії, годинники, таблички, фігурні вироби…',kind:'sheet',ico:'acril',terms:'long',
+  acril:{hidden:1,n:'Акрил',d:'Номерки, бірки, фотографії, годинники, таблички, фігурні вироби…',kind:'sheet',ico:'acril',terms:'long',
     std:[[150,150],[100,400],[200,150],[200,350],[500,150],[250,400],[200,600],[250,550],[300,900],[100,200],[200,300]],
     q:['uv','uvcw','uvwc','w1','w2','none'],qLabel:'Друк',
     mats:[
@@ -161,26 +165,23 @@ const CATS = {
       {n:'Прозорий 3мм',t:'Акрил прозорий 3 мм',sheet:[205,305],cost:680,pr:{uv:1180,uvcw:1330,uvwc:1330,w1:1130,w2:1280,none:1090}},
     ],
     opts:['sheetTwo','acrCut','hole','holePos','tape','protect']},
-  canvas:{n:'Полотна',d:'Полотна, картини, модулі…',kind:'roll',ico:'canvas',terms:'std',big:'parts',
-    vids:[{n:'Друк з натягуванням на підрамник',ico:'frame'},{n:'Друк на полотні',ico:'roll'}],
-    std:[[300,200],[300,300],[400,300],[600,400],[700,500],[900,600],[1100,800],[1000,1000],[1300,1000],[1600,1300]],
-    q:['uv','none'],
-    mats:[
-      {n:'Matt 340 г/м² натуральне',t:'Полотно Matt 340 г/м², натуральне',rolls:[107,152],cost:170,pr:{uv:520,none:300}},
-      {n:'Matt 240 г/м² синтетика',t:'Полотно Matt 240 г/м², синтетика',rolls:[107,152],cost:90,pr:{uv:400,none:200}},
-    ],
-    opts:['frame','stretch','hang','canvasCut']},
-  stands:{n:'Мобільні стенди',d:'X-banner, L-banner, Roll-up, Press-wall…',kind:'stand',ico:'stand',terms:'short',
+  canvas:{n:'Холст',d:'Полотна, картини, модулі…',kind:'roll',ico:'canvas',terms:'std',big:'parts',
+    vids:[{n:'Друк з натяжкою на раму',ico:'frame'},{n:'Тільки друк на холсті',ico:'roll'}],
+    std:[[300,200],[300,300],[400,300],[600,400],[700,500],[900,600],[1100,800],[1000,1000]],
+    q:['eco','eco2'],
+    mats:[{n:'Холст напівсинтетика',t:'Холст напівсинтетичний',rolls:[61,107,127],waste:0,cost:0,pr:{eco:350,eco2:450}}],
+    opts:['frame','stretch','canvasCut']},
+  stands:{hidden:1,n:'Мобільні стенди',d:'X-banner, L-banner, Roll-up, Press-wall…',kind:'stand',ico:'stand',terms:'short',
     vids:[
       {n:'X-banner',ico:'x',sizes:[[600,1600,581.87],[600,1600,1052.97,'посилений'],[800,1800,1204.28],[1200,2000,2408.58]]},
       {n:'Roll-up',ico:'roll',sizes:[[850,2000,1650],[1000,2000,1890],[1200,2000,2290]]},
       {n:'Press-Wall',ico:'wall',sizes:[[2250,2250,7900],[3000,2250,9600]]},
       {n:'Затискачі для постерів',ico:'clip',sizes:[[594,841,350,'А1'],[841,1189,520,'А0']]}],
-    q:['q1440','photo','uv'],
+    q:['eco','uv'],
     mats:[], opts:[]},
 };
-CATS.stands.mats = CATS.banner.mats.slice(0,3).map(m=>({...m,pr:{q1440:m.pr.q1440,photo:m.pr.q1440+60,uv:m.pr.uv||m.pr.q1440+30}}));
-const ORDER=['banner','film','paper','custom','pvh','foam','comp','acril','canvas','stands'];
+CATS.stands.mats = CATS.banner.mats.slice(0,2).map(m=>({...m,pr:{eco:m.pr.eco,uv:m.pr.uv||m.pr.eco}}));
+const ORDER=['posters','banner','film','paper','canvas','custom','pvh','foam','comp','acril','stands'];
 
 /* =====================================================================
    ІКОНКИ
@@ -281,7 +282,8 @@ function packSheets(items,SW,SH,pol){
 const LCACHE=new Map();
 function layout(cat, mat, sizes, mult){
   const m=marginFor(cat,mat);
-  const key=[mat.n,m,CFG.leftoverMin,mult,sizes.map(s=>s.w+'x'+s.h).join(',')].join('|');
+  const add=cat.lenAdd??CFG.lenAdd??0;
+  const key=[mat.n,m,CFG.leftoverMin,CFG.nest,add,mult,sizes.map(s=>s.w+'x'+s.h).join(',')].join('|');
   if(LCACHE.has(key)) return LCACHE.get(key);
   const sp=splitItems(sizes,cat,mat,m);
   if(sp.some(s=>s.err)) return null;
@@ -290,7 +292,14 @@ function layout(cat, mat, sizes, mult){
     items.push({fw:s.pw+2*m,fh:s.ph+2*m,n}); }
   const uniform = items.length===1;
   let best=null;
-  if(mat.rolls){
+  if(mat.rolls&&!CFG.nest){
+    // як у робочій таблиці: виріб займає всю ширину рулону, довжина = сторона виробу + запас
+    for(const W of mat.rolls){ let L=0, ok=true; const rects=[];
+      for(const sz of sp){ const o=[[sz.pw,sz.ph],[sz.ph,sz.pw]].filter(([a])=>a<=W-2*m+1e-9).sort((x,y)=>x[1]-y[1])[0]; if(!o){ ok=false; break; }
+        const n=mult*sz.parts; for(let i=0;i<n&&rects.length<300;i++) rects.push({x:0,y:L+i*(o[1]+add),w:W,h:o[1]+add,ia:o[0],ib:o[1]});
+        L+=n*(o[1]+add); }
+      if(!ok) continue; const used=W*L/1e4; if(!best||used<best.used-1e-9) best={kind:'roll',W,L,used,rects}; }
+  } else if(mat.rolls){
     for(const W of mat.rolls){
       let L=null, rects=null;
       if(uniform){ const it=items[0];
@@ -364,20 +373,24 @@ const isBigItem=()=>{ const c=curCat(); if(c.kind!=='roll') return false; const 
 function price(cat,mat,qk,lamI,term,tirage){
   const sizes=curSizes(); if(!sizes.length) return null;
   const pr=mat.pr[qk]; if(pr==null) return null;
+  const wp=m=>m.waste??m.cost*(1+CFG.markup); // ціна відходу, грн/м²
   const mult=tirage*S.kits;
   const o=optionsCost(cat,sizes,mult,mat);
   let base, info;
-  if(cat.kind==='stand'){
+  if(cat.fixed){ // фіксована ціна за штуку для стандартного формату
+    const st=cat.std[S.std], fx=mat.fx&&mat.fx[st[0]+'x'+st[1]], fp=fx&&fx[qk]; if(fp==null) return null;
+    base=fp*mult+o.cost; info={L:null,printCost:fp*mult,waste:0,wasteCost:0,fixed:true};
+  } else if(cat.kind==='stand'){
     const st=cat.vids[S.vid].sizes[S.std], cons=st[2]*mult;
     const L = S.standMode===2 ? null : layout(CATS.banner,mat,sizes,mult);
-    const prn = L ? L.printArea*pr+(L.used-L.printArea)*mat.cost*(1+CFG.markup) : 0;
+    const prn = L ? L.printArea*pr+(L.used-L.printArea)*wp(mat) : 0;
     base=(S.standMode!==1?cons:0)+prn; info={L,cons,prn};
   } else {
     const L=layout(cat,mat,sizes,mult); if(!L) return null;
     const lam=cat.lam?cat.lam[lamI].p:0;
     const printCost=L.printArea*(pr*o.k+lam);
-    const waste=Math.max(0,L.used-L.printArea), wasteCost=waste*mat.cost*(1+CFG.markup);
-    const seamCost=(cat.big==='weld'&&(S.opts.big||0)===0)?L.seam/100*24:0;
+    const waste=Math.max(0,L.used-L.printArea), wasteCost=waste*wp(mat);
+    const seamCost=(cat.big==='weld'&&(S.opts.big||0)===0)?L.seam/100*(CFG.seam??80):0;
     base=printCost+wasteCost+o.cost+seamCost; info={L,printCost,waste,wasteCost,seamCost,lam};
   }
   const afterTerm=base*term.k, vd=volumeD(tirage), lv=CFG.levels.find(l=>l.id===CFG.level).d;
@@ -405,6 +418,7 @@ const curCat=()=>CATS[S.cat];
 const stdList=()=>{ const c=curCat(); return c.kind==='stand'?c.vids[S.vid].sizes:c.std; };
 function curSizes(){ // см
   const c=curCat(); const k=S.unit==='mm'?0.1:1;
+  if(c.fixed){ const s=c.std[S.std]||c.std[0]; return [{w:s[0]/10,h:s[1]/10}]; }
   if(c.kind==='stand'){ const s=c.vids[S.vid].sizes[S.std]; return [{w:s[0]/10,h:s[1]/10}]; }
   const own=S.sizes.filter(s=>+s.w>0&&+s.h>0).map(s=>({w:+s.w*k,h:+s.h*k}));
   if(own.length) return own;
@@ -418,7 +432,9 @@ function drawLayout(L){
   const fromGrid=(g,n,cap,sheetIdx)=>{ const out=[]; for(let i=0;i<Math.min(n,cap);i++){ const s=g.per?Math.floor(i/g.per):0; if(sheetIdx!=null&&s!==sheetIdx) continue; const j=g.per?i%g.per:i; out.push({x:(j%g.ac)*g.w,y:Math.floor(j/g.ac)*g.h,w:g.w,h:g.h}); } return out; };
   const one=(len,wid,rects,title,cut)=>{ const s=Math.min(1.6,180/wid,500/Math.max(len,1)), W=Math.max(len*s,30), H=wid*s;
     let g=`<rect width="${W}" height="${H}" fill="var(--waste)" stroke="var(--waste-line)"/>`;
-    for(const r of rects){ const x=r.y*s,y=r.x*s,w=r.h*s,h=r.w*s,ms=m*s; g+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="var(--margin)" stroke="var(--card)"/><rect x="${x+ms}" y="${y+ms}" width="${Math.max(0,w-2*ms)}" height="${Math.max(0,h-2*ms)}" fill="var(--print)"/>`; }
+    for(const r of rects){ const x=r.y*s,y=r.x*s,w=r.h*s,h=r.w*s,ms=m*s;
+      if(r.ia!=null) g+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="var(--waste-line)"/><rect x="${x+(w-r.ib*s)/2}" y="${y+(h-r.ia*s)/2}" width="${r.ib*s}" height="${r.ia*s}" fill="var(--print)"/>`;
+      else g+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="var(--margin)" stroke="var(--card)"/><rect x="${x+ms}" y="${y+ms}" width="${Math.max(0,w-2*ms)}" height="${Math.max(0,h-2*ms)}" fill="var(--print)"/>`; }
     if(cut!=null) g+=`<line x1="${cut*s}" x2="${cut*s}" y1="-3" y2="${H+3}" stroke="var(--bad)" stroke-dasharray="4 3"/>`;
     return `<svg width="${W+4}" height="${H+18}" viewBox="-2 -14 ${W+4} ${H+18}" style="display:block;margin-bottom:8px"><text y="-4" font-size="10" fill="var(--muted)">${title}</text>${g}</svg>`; };
   if(L.kind==='roll') return one(L.L,L.W,L.rects.grid?fromGrid(L.rects.grid,L.rects.n,800):L.rects,`рулон ${L.W} см · довжина ${fmt1(L.L/100)} м →`);

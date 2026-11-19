@@ -7,7 +7,7 @@
 <title>Адмінка друку</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="app.css?v=2">
 <style>
 /* ---------- адмінка ---------- */
 .atop{display:flex;align-items:center;gap:16px;padding:12px 24px;flex-wrap:wrap}
@@ -58,7 +58,9 @@
 .hint{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--soft);border:1px solid var(--line);font-size:10px;color:var(--muted);cursor:help;vertical-align:1px}
 .mat-h,.opt-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 .mat.na{opacity:.7;border-style:dashed}
-.mat-g{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr);gap:14px}
+.mat-g{display:grid;grid-template-columns:minmax(0,1.6fr) repeat(3,minmax(0,1fr));gap:14px}
+.dfl{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}.dfl .inp{width:150px}
+.totrow td{font-weight:700;background:var(--soft);border-top:2px solid var(--line)}
 .rolls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .roll{display:inline-flex;gap:4px;align-items:center}
 .ed.w{width:80px;min-width:0}
@@ -107,7 +109,7 @@ select.ed{padding-right:24px;background-position:right 8px center}
 <div class="alay"><nav class="side" id="side"></nav><main class="amain" id="app"></main></div>
 <div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
 
-<script src="shared.js"></script>
+<script src="shared.js?v=2"></script>
 <script>
 /* =====================================================================
    АДМІНКА + CRM. Тестові дані, в пам'яті сторінки.
@@ -131,11 +133,12 @@ I.badge=sv('<rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy=
 /* ---------- ролі й права: власник змінює права, створює й видаляє ролі ---------- */
 const PERMS=[['settings','Ціни, матеріали, налаштування'],['levels','Рівні клієнтів'],['cost','Собівартість і маржа'],
   ['allOrders','Усі замовлення','Без цього права — тільки замовлення, взяті в роботу'],['clients','Клієнти'],['prepress','Препрес (перевірка макетів)'],
-  ['production','Черга виробництва'],['money','Рахунки й оплати'],['assign','Призначати замовлення іншим'],['profit','Дашборд «Заробіток»'],['staff','Персонал (додати, видалити співробітника)']];
+  ['production','Черга виробництва'],['money','Рахунки й оплати'],['reports','Звіти по замовленнях'],['assign','Призначати замовлення іншим'],['profit','Дашборд «Заробіток»'],['staff','Персонал (додати, видалити співробітника)']];
 let RL=[
   {id:'owner',n:'Власник',fixed:1,perms:PERMS.map(p=>p[0])},
-  {id:'admin',n:'Адмін',perms:['settings','levels','cost','allOrders','clients','prepress','production','money','assign','staff']},
-  {id:'mplus',n:'Менеджер+',perms:['cost','allOrders','clients','prepress','production','money','assign']},
+  {id:'admin',n:'Адмін',perms:['settings','levels','cost','allOrders','clients','prepress','production','money','reports','assign','staff']},
+  {id:'accountant',n:'Бухгалтер',perms:['cost','allOrders','clients','money','reports']},
+  {id:'mplus',n:'Менеджер+',perms:['cost','allOrders','clients','prepress','production','money','reports','assign']},
   {id:'manager',n:'Менеджер',perms:['allOrders','clients','prepress','production','money']},
   {id:'designer',n:'Дизайнер',perms:['prepress','production']},
 ];
@@ -151,6 +154,7 @@ const STAFF=[
   {id:4,login:'manager@druk.test',pass:'manager123',n:'Андрій Ткаченко',role:'manager',online:true,seen:dt(0,9,5)},
   {id:5,login:'manager2@druk.test',pass:'manager123',n:'Дмитро Лисенко',role:'manager',online:true,seen:dt(0,8,30)},
   {id:6,login:'designer@druk.test',pass:'design123',n:'Катерина Руденко',role:'designer',online:true,seen:dt(0,9,10)},
+  {id:7,login:'buh@druk.test',pass:'buh123',n:'Оксана Гриценко',role:'accountant',online:true,seen:dt(0,9,20)},
 ];
 // вхід: у тестовій версії перевірка в браузері; у робочій версії — на сервері
 let meId=null; try{ meId=+sessionStorage.getItem('staff_id')||null; }catch(e){}
@@ -160,7 +164,7 @@ const staffN=id=>{ const s=STAFF.find(x=>x.id===id); return s?s.n:'—'; };
 const short=n=>{ const [a,b]=n.split(' '); return a+' '+(b?b[0]+'.':''); };
 
 /* ---------- собівартість друку (фарба, знос), грн/м² — нове поле для адмінки ---------- */
-const INK={q720:25,q1440:35,photo:45,uv:60,uvgl:75,uvmat:75,uvcw:90,uvw:70,uvwc:90,uvl:100,w1:60,w2:90,none:0};
+const INK={sol:20,eco:30,eco2:40,q720:25,q1440:35,photo:45,uv:60,uvgl:75,uvmat:75,uvcw:90,uvw:70,uvwc:90,uvl:100,w1:60,w2:90,none:0};
 
 /* ---------- клієнти ---------- */
 const CL=[
@@ -194,34 +198,44 @@ const ST={new:['Нове','gray'],check:['Перевірка макета','ambe
 const NEXT={new:['check','cancel'],check:['fix','paid','cancel'],fix:['check','cancel'],paid:['print'],print:['ready'],ready:['sent','done'],sent:['done'],done:[],cancel:[]};
 const badge=st=>`<span class="badge b-${ST[st][1]}">${ST[st][0]}</span>`;
 
+// сума за прайсом: друк + відхід (або фіксована ціна формату)
+function calcSum(C,m,qk,w,h,n){
+  const fx=C.fixed&&m.fx&&m.fx[w+'x'+h]; if(fx&&fx[qk]!=null) return fx[qk]*n;
+  const L=layout(C,m,[{w:w/10,h:h/10}],n); if(!L) return 0;
+  return Math.round((L.printArea*(m.pr[qk]||0)+Math.max(0,L.used-L.printArea)*(m.waste??m.cost))*100)/100;
+}
 function O(id,c,dOff,cat,mi,qk,w,h,tir,term,readyOff,st,who,x={}){
-  const C=CATS[cat], m=C.mats[mi];
+  const C=CATS[cat], m=C.mats[mi]; if(x.sum==null) x.sum=calcSum(C,m,qk,w,h,tir*(x.kits||1));
   return {id,c,d:dt(dOff,10+(id%8),id%60),cat,mi,mat:m,qk,w,h,tir,kits:x.kits||1,term,ready:dt(readyOff,18),st,who,
     name:m.n,opts:x.opts||[],sum:x.sum,paid:x.paid??(['paid','print','ready','sent','done'].includes(st)?x.sum:0),
     files:x.files||[],deliv:x.deliv||'self',ttn:x.ttn||'',rework:x.rework||0,reworkReq:!!x.reworkReq,fixReason:x.fix||'',
     thread:x.thread||[],log:[{d:dt(dOff,10+(id%8),id%60),t:'Замовлення створено клієнтом'}],title:x.title||''};
 }
 const ORD=[
-  O(48234,10212,0,'film',0,'q1440',1000,500,20,'Стандарт 1 день',1,'check',null,{sum:4120,files:[{n:'logo_stickers_1000x500.pdf',st:'wait',at:dt(0,9,15)}],opts:['Плотерна порізка: проста'],deliv:'np'}),
-  O(48233,10301,0,'banner',1,'q720',2000,1000,1,'Економ 2 дні',2,'new',null,{sum:470,opts:['Порізка: в заданому розмірі','Люверсовка по кутам']}),
-  O(48231,10245,0,'banner',0,'q720',3000,1000,2,'Стандарт 1 день',1,'check',4,{sum:1340.40,files:[{n:'banner_3000x1000.pdf',st:'wait',at:dt(0,9,40)}],opts:['Порізка: в заданому розмірі','Люверсовка по периметру, 10 мм, крок 300 мм'],deliv:'np'}),
-  O(48229,10188,-1,'paper',0,'q720',1200,1800,10,'Стандарт 1 день',0,'paid',3,{sum:1890,files:[{n:'menu_poster.pdf',st:'ok'}],opts:['Порізка в розмір']}),
-  O(48226,10212,-4,'banner',0,'q720',6000,3000,1,'Економ 2 дні',-1,'print',5,{sum:8790,files:[{n:'fasad_6x3.pdf',st:'ok'}],opts:['Зпаювання частин','Люверсовка по периметру, крок 300 мм','Зпаювання підворота'],deliv:'np'}),
-  O(48220,10330,0,'pvh',4,'uv',300,200,30,'Стандарт 1 день',1,'paid',null,{sum:1230,files:[{n:'tablychky_kabinety.pdf',st:'ok'}],opts:['Порізка','Двосторонній скотч']}),
-  O(48217,10245,-1,'film',0,'q1440',500,700,10,'Економ 2 дні',1,'fix',3,{kits:2,sum:2186,files:[{n:'stickers_v1.pdf',st:'bad',reason:'Текст ближче ніж 5 мм до лінії порізки; шрифти не переведені в криві.'},{n:'stickers_2.pdf',st:'ok'}],opts:['Плотерна порізка: проста, 2,4 м пог./шт'],fix:'Текст ближче ніж 5 мм до лінії порізки; шрифти не переведені в криві.',
+  O(48234,10212,0,'film',0,'eco',1000,500,20,'Стандарт 1 день',1,'check',null,{files:[{n:'logo_stickers_1000x500.pdf',st:'wait',at:dt(0,9,15)}],opts:['Плотерна порізка: проста'],deliv:'np'}),
+  O(48233,10301,0,'banner',1,'sol',2000,1000,1,'Стандарт 1 день',2,'new',null,{opts:['Порізка: в заданому розмірі','Люверсовка по кутам']}),
+  O(48231,10245,0,'banner',0,'sol',3000,1000,2,'Стандарт 1 день',1,'check',4,{files:[{n:'banner_3000x1000.pdf',st:'wait',at:dt(0,9,40)}],opts:['Порізка: в заданому розмірі','Люверсовка по периметру, 10 мм, крок 300 мм'],deliv:'np'}),
+  O(48229,10188,-1,'paper',0,'sol',1200,1800,10,'Стандарт 1 день',0,'paid',3,{files:[{n:'menu_poster.pdf',st:'ok'}],opts:['Порізка в розмір']}),
+  O(48226,10212,-4,'banner',1,'sol',6000,3000,1,'Стандарт 1 день',-1,'print',5,{files:[{n:'fasad_6x3.pdf',st:'ok'}],opts:['Зпаювання частин','Люверсовка по периметру, крок 300 мм','Зпаювання підворота'],deliv:'np'}),
+  O(48220,10330,0,'posters',0,'eco',594,841,30,'Стандарт 1 день',1,'paid',null,{files:[{n:'tablychky_kabinety.pdf',st:'ok'}]}),
+  O(48217,10245,-1,'film',1,'eco',500,700,10,'Стандарт 1 день',1,'fix',3,{kits:2,files:[{n:'stickers_v1.pdf',st:'bad',reason:'Текст ближче ніж 5 мм до лінії порізки; шрифти не переведені в криві.'},{n:'stickers_2.pdf',st:'ok'}],opts:['Плотерна порізка: проста, 2,4 м пог./шт'],fix:'Текст ближче ніж 5 мм до лінії порізки; шрифти не переведені в криві.',
     thread:[{d:dt(-1,16,30),from:'Препрес',t:'Макет stickers_v1.pdf повернено на виправлення…'},{d:dt(-1,16,50),from:'Клієнт',t:'А якщо відступ 3 мм — це критично?'},{d:dt(-1,17,5),from:'Препрес',t:'Так, порізка має допуск ±1,5 мм. Рекомендуємо 5 мм.'}]}),
-  O(48215,10188,-1,'film',1,'q1440',600,600,4,'Стандарт 1 день',1,'check',6,{sum:780,reworkReq:true,files:[{n:'zerno_logo.jpg',st:'bad',reason:'Низька роздільна здатність (72 dpi) для 1440 dpi'}],opts:['Плотерна порізка: проста'],
+  O(48215,10188,-1,'film',2,'eco',600,600,4,'Стандарт 1 день',1,'check',6,{reworkReq:true,files:[{n:'zerno_logo.jpg',st:'bad',reason:'Низька роздільна здатність (72 dpi) для 1440 dpi'}],opts:['Плотерна порізка: проста'],
     thread:[{d:dt(-1,12),from:'Клієнт',t:'Замовляю доопрацювання — зробіть, будь ласка, векторний логотип.'}]}),
-  O(48200,10212,-3,'paper',1,'q1440',1200,1800,8,'Стандарт 1 день',-1,'ready',4,{sum:3120,files:[{n:'citylights_x8.pdf',st:'ok'}],deliv:'np'}),
-  O(48190,10245,-2,'paper',1,'q1440',1200,1800,4,'Стандарт 1 день',0,'print',4,{sum:1508.60,files:[{n:'citylight_1200x1800.tif',st:'ok'}],opts:['Порізка в розмір'],deliv:'np'}),
-  O(48152,10245,-3,'pvh',2,'uv',600,400,5,'Стандарт 1 день',-1,'ready',3,{sum:1912,files:[{n:'tablychky.pdf',st:'ok'}],opts:['Порізка','Отвір: 4 шт/виріб']}),
-  O(48101,10245,-6,'canvas',0,'photo',600,900,1,'4 дні',-2,'sent',4,{sum:1146.30,files:[{n:'kartyna.jpg',st:'ok'}],deliv:'np',ttn:'20450912345678'}),
-  O(48170,10212,-20,'banner',2,'q720',4000,2000,3,'Стандарт 1 день',-19,'done',3,{sum:6240,files:[{n:'tents.pdf',st:'ok'}],deliv:'np',ttn:'20450900000077'}),
-  O(47988,10245,-12,'stands',0,'q1440',800,1800,2,'Стандарт 1 день',-11,'done',4,{sum:1188,files:[{n:'xbanner.pdf',st:'ok'}],deliv:'np',ttn:'20450900011122'}),
-  O(47950,10245,-14,'banner',3,'q720',6000,3000,1,'Економ 2 дні',-12,'done',5,{sum:2310.50,files:[{n:'fasad_mesh.pdf',st:'ok'}]}),
-  O(47911,10245,-16,'film',6,'q1440',1200,900,3,'Стандарт 1 день',-15,'cancel',null,{sum:964.80}),
+  O(48200,10212,-3,'paper',0,'eco',1200,1800,8,'Стандарт 1 день',-1,'ready',4,{files:[{n:'citylights_x8.pdf',st:'ok'}],deliv:'np'}),
+  O(48190,10245,-2,'paper',0,'eco',1200,1800,4,'Стандарт 1 день',0,'print',4,{files:[{n:'citylight_1200x1800.tif',st:'ok'}],opts:['Порізка в розмір'],deliv:'np'}),
+  O(48152,10245,-3,'posters',1,'sol',1200,1800,5,'Стандарт 1 день',-1,'ready',3,{files:[{n:'tablychky.pdf',st:'ok'}]}),
+  O(48101,10245,-6,'canvas',0,'eco2',600,900,1,'Стандарт 1 день',-2,'sent',4,{files:[{n:'kartyna.jpg',st:'ok'}],deliv:'np',ttn:'20450912345678'}),
+  O(48170,10212,-20,'banner',1,'sol',4000,2000,3,'Стандарт 1 день',-19,'done',3,{files:[{n:'tents.pdf',st:'ok'}],deliv:'np',ttn:'20450900000077'}),
+  O(47988,10245,-12,'banner',1,'eco',800,1800,2,'Стандарт 1 день',-11,'done',4,{files:[{n:'xbanner.pdf',st:'ok'}],deliv:'np',ttn:'20450900011122'}),
+  O(47950,10245,-14,'banner',5,'sol',6000,3000,1,'Стандарт 1 день',-12,'done',5,{files:[{n:'fasad_mesh.pdf',st:'ok'}]}),
+  O(47911,10245,-16,'film',6,'eco',1200,900,3,'Стандарт 1 день',-15,'cancel',null,{}),
 ];
 const ord=id=>ORD.find(o=>o.id==id);
+// рух коштів і рахунки — за фактичними сумами замовлень
+LEDGER.forEach(x=>{ const m=/Оплата замовлення №(\d+)/.exec(x.t), o=m&&ord(m[1]); if(o) x.s=-o.sum; });
+for(const c of CL){ const b=LEDGER.filter(x=>x.c===c.id).reduce((a,x)=>a+x.s,0); if(b<0){ const t=LEDGER.find(x=>x.c===c.id&&x.s>0); if(t) t.s+=Math.ceil(-b/500)*500+500; } }
+INV.forEach(v=>{ if(v.o.length) v.s=v.o.reduce((a,id)=>a+(ord(id)?ord(id).sum:0),0); });
 const due=o=>Math.max(0,o.sum+o.rework-o.paid);
 const isPaid=o=>due(o)<.005;
 const open_=o=>!['done','cancel'].includes(o.st);
@@ -240,7 +254,7 @@ function lay(o){ // внутрішня розкладка: розміри в с�
 function costOf(o){
   const L=lay(o), m=matOf(o); if(!L) return null;
   const material=L.used*m.cost, ink=L.printArea*(INK[o.qk]||0), waste=Math.max(0,L.used-L.printArea);
-  const extra=o.cat==='stands'?o.tir*o.kits*180:0; // конструкції
+  const extra=0;
   const cost=material+ink+extra;
   return {L,material,ink,extra,waste,cost,margin:o.sum+o.rework-cost};
 }
@@ -248,7 +262,7 @@ function logO(o,t){ o.log.push({d:new Date(),t:`${short(ME().n)}: ${t}`}); }
 function sendClient(o,from,t){ o.thread.push({d:new Date(),from,t}); }
 
 /* ---------- стан інтерфейсу ---------- */
-const U={page:'dash',arg:'',otab:'act',own:'all',q:'',period:30,stab:'cats',scat:'banner',svid:0,ctab:'all'};
+const U={page:'dash',arg:'',otab:'act',own:'all',q:'',period:30,stab:'cats',scat:'banner',svid:0,ctab:'all',df:'',dt:'',rst:'all'};
 
 /* ---------- шапка й меню ---------- */
 function renderWho(){
@@ -271,7 +285,7 @@ function renderSide(){
   const pp=prepQueue().length, freeN=ORD.filter(o=>open_(o)&&!o.who&&o.st!=='cancel').length;
   const items=[
     ['dash','dash','Дашборд'],['orders','orders','Замовлення',freeN||''],can('prepress')&&['prepress','eye','Препрес',pp||''],can('production')&&['production','printer','Черга виробництва'],
-    can('clients')&&['clients','users','Клієнти'],can('money')&&['money','fin','Рахунки й оплати'],
+    can('clients')&&['clients','users','Клієнти'],can('money')&&['money','fin','Рахунки й оплати'],can('reports')&&['reports','doc','Звіти'],
     (can('settings')||can('staff'))&&'sep',
     can('settings')&&['settings','cog','Налаштування'],can('staff')&&['staff','badge','Персонал']].filter(Boolean);
   const cur=U.page==='order'?'orders':U.page==='client'?'clients':U.page;
@@ -312,7 +326,66 @@ function pDash(){
      <div class="card flush"><div class="tbl-wrap"><table class="tbl compact" style="min-width:520px"><thead><tr><th>Категорія</th><th class="r">Замовлень</th><th class="r">Виручка</th><th class="r">Собівартість</th><th class="r">Прибуток</th></tr></thead><tbody>
       ${Object.entries(rows).map(([k,r])=>`<tr><td>${k}</td><td class="r">${r.n}</td><td class="r">${fmt(r.rev)}</td><td class="r">${fmt(r.cost)}</td><td class="r"><b>${fmt(r.rev-r.cost)}</b></td></tr>`).join('')||'<tr><td colspan="5" class="none">За період готових замовлень немає</td></tr>'}</tbody></table></div></div>`;
   }
+  if(can('reports')) h+=`<div class="page-h" style="margin-top:8px"><h1 style="font-size:19px">Звіт по останніх замовленнях</h1><div class="acts"><a class="btn" data-go="reports">Усі звіти →</a></div></div><div class="card flush">${reportTable(visibleOrders().slice().sort((a,b)=>b.d-a.d).slice(0,8),true)}</div>`;
   app.innerHTML=h;
+}
+
+/* ---------- спільний фільтр за датою створення ---------- */
+const dkey=d=>`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+const inDates=o=>(!U.df||dkey(o.d)>=U.df)&&(!U.dt||dkey(o.d)<=U.dt);
+const dateFilter=()=>`<label class="dfl">з <input class="inp" type="date" id="fDf" value="${U.df}"></label><label class="dfl">по <input class="inp" type="date" id="fDt" value="${U.dt}"></label>${U.df||U.dt||U.q?'<button class="btn sm" data-act="fClear">Скинути</button>':''}`;
+
+/* ---------- звіт по одному замовленню ---------- */
+function orderReport(o){
+  const k=costOf(o), m=matOf(o), C=CATS[o.cat], total=o.sum+o.rework;
+  const fx=C.fixed&&m.fx&&m.fx[o.w+'x'+o.h], fixed=fx&&fx[o.qk]!=null;
+  const printRev=fixed?fx[o.qk]*o.tir*o.kits:(k?k.L.printArea*(m.pr[o.qk]||0):0), wasteRev=fixed||!k?0:k.waste*(m.waste??m.cost);
+  return {k,total,fixed,printRev,wasteRev,other:Math.max(0,o.sum-printRev-wasteRev),area:k?k.L.printArea:0,waste:k?k.waste:0,used:k?k.L.used:0,
+    cost:k?k.cost:0,profit:k?total-k.cost:0,due:o.st==='cancel'?0:due(o)};
+}
+function reportCard(o){
+  const r=orderReport(o), m=matOf(o), cst=can('cost');
+  return `<div class="card"><div class="card-h"><h2>Звіт по замовленню</h2></div><table class="sum" style="font-size:13.5px">
+    ${r.fixed?`<tr><td>Формат ${o.w}×${o.h} мм × ${o.tir*o.kits} шт</td><td>${fmt(r.printRev)}</td></tr>`
+      :`<tr><td>Друк ${fmt1(r.area)} м² × ${m.pr[o.qk]??0}</td><td>${fmt(r.printRev)}</td></tr><tr><td>Відхід ${fmt1(r.waste)} м² × ${m.waste??m.cost}</td><td>${fmt(r.wasteRev)}</td></tr>`}
+    ${r.other>0.005?`<tr><td>Додаткові послуги</td><td>${fmt(r.other)}</td></tr>`:''}${o.rework?`<tr><td>Доопрацювання макета</td><td>${fmt(o.rework)}</td></tr>`:''}
+    <tr class="tot"><td>Виручка</td><td>${fmt(r.total)}</td></tr><tr><td>Оплачено</td><td>${fmt(o.paid)}</td></tr><tr class="due"><td>Борг клієнта</td><td>${fmt(r.due)}</td></tr>
+    ${cst?`<tr><td style="padding-top:12px">Матеріал ${fmt1(r.used)} м² (з відходом)</td><td style="padding-top:12px">${fmt(r.k?r.k.material:0)}</td></tr><tr><td>Друк (фарба, знос)</td><td>${fmt(r.k?r.k.ink:0)}</td></tr>
+      <tr class="tot"><td>Собівартість</td><td>${fmt(r.cost)}</td></tr><tr><td>Прибуток</td><td style="color:var(--ok);font-weight:700">${fmt(r.profit)} · ${r.total?fmt1(r.profit/r.total*100):0}%</td></tr>`:''}
+   </table><div class="log" style="margin-top:12px"><div>Створено: <b>${dstr(o.d)} ${tstr(o.d)}</b></div><div>Готовність: <b>${dstr(o.ready)}</b></div><div>Виконавець: <b>${o.who?staffN(o.who):'—'}</b></div></div></div>`;
+}
+
+/* =====================================================================
+   ЗВІТИ
+   ===================================================================== */
+function reportRows(){
+  const q=U.q.trim().toLowerCase();
+  return visibleOrders().filter(inDates).filter(o=>U.rst==='all'||(U.rst==='open'?open_(o):U.rst==='closed'?['ready','sent','done'].includes(o.st):o.st===U.rst))
+    .filter(o=>!q||String(o.id).includes(q)||cl(o.c).n.toLowerCase().includes(q)||o.name.toLowerCase().includes(q)||String(o.c).includes(q)).sort((a,b)=>b.d-a.d);
+}
+function reportTable(list,compact){
+  const cst=can('cost'), rs=list.map(o=>({o,r:orderReport(o)})), live=rs.filter(x=>x.o.st!=='cancel');
+  const T=k=>live.reduce((a,x)=>a+x.r[k],0), paid=live.reduce((a,x)=>a+x.o.paid,0);
+  return `<div class="tbl-wrap"><table class="tbl compact" style="min-width:${compact?640:1080}px"><thead><tr><th>№ / дата</th><th>Клієнт</th>${compact?'':'<th>Продукт</th><th class="r">Друк, м²</th><th class="r">Відхід, м²</th>'}<th class="r">Сума</th><th class="r">Оплачено</th><th class="r">Борг</th>${cst?'<th class="r">Собівартість</th><th class="r">Прибуток</th>'+(compact?'':'<th class="r">Маржа</th>'):''}<th>Статус</th>${compact?'':'<th>Виконавець</th>'}</tr></thead><tbody>
+   ${rs.map(({o,r})=>`<tr class="row" data-go="order/${o.id}"><td><b>${o.id}</b><small>${dstr(o.d)}</small></td><td>${esc(cl(o.c).n)}</td>${compact?'':`<td>${CATS[o.cat].n}<small>${o.name}</small></td><td class="r">${fmt1(r.area)}</td><td class="r">${fmt1(r.waste)}</td>`}
+     <td class="r">${fmt(r.total)}</td><td class="r">${fmt(o.paid)}</td><td class="r">${r.due>0.005?`<b style="color:var(--bad)">${fmt(r.due)}</b>`:'—'}</td>${cst?`<td class="r">${fmt(r.cost)}</td><td class="r"><b>${fmt(r.profit)}</b></td>`+(compact?'':`<td class="r">${r.total?fmt1(r.profit/r.total*100):0}%</td>`):''}
+     <td>${badge(o.st)}</td>${compact?'':`<td>${o.who?short(staffN(o.who)):'—'}</td>`}</tr>`).join('')||`<tr><td colspan="13" class="none">Немає замовлень за цими умовами</td></tr>`}</tbody>
+   ${rs.length?`<tfoot><tr class="totrow"><td colspan="${compact?2:3}">Разом (без скасованих): ${live.length}</td>${compact?'':`<td class="r">${fmt1(T('area'))}</td><td class="r">${fmt1(T('waste'))}</td>`}<td class="r">${fmt(T('total'))}</td><td class="r">${fmt(paid)}</td><td class="r">${fmt(T('due'))}</td>${cst?`<td class="r">${fmt(T('cost'))}</td><td class="r">${fmt(T('profit'))}</td>`+(compact?'':`<td class="r">${T('total')?fmt1(T('profit')/T('total')*100):0}%</td>`):''}<td colspan="2"></td></tr></tfoot>`:''}</table></div>`;
+}
+function pReports(){
+  if(!can('reports')){ app.innerHTML=noAccess(); return; }
+  const list=reportRows();
+  app.innerHTML=pageH('Звіти по замовленнях',`<button class="btn" data-act="repCsv">Завантажити CSV</button>`)+
+  `<div class="card flush"><div class="bar"><input class="inp" id="oq" placeholder="№ замовлення, клієнт, матеріал" value="${esc(U.q)}" style="max-width:260px">${dateFilter()}
+    <select class="sel" id="fSt" style="width:190px;height:38px">${[['all','Усі статуси'],['open','Незакриті'],['closed','Готові й виконані'],...Object.entries(ST).map(([k,v])=>[k,v[0]])].map(([k,n])=>`<option value="${k}" ${U.rst===k?'selected':''}>${n}</option>`).join('')}</select></div>
+   ${reportTable(list)}</div>
+  <p class="foot-note">Дата у фільтрі — дата створення замовлення. Собівартість = матеріал з відходом + друк; значення собівартості задаються в «Налаштуваннях».</p>`;
+}
+function reportCsv(){
+  const cst=can('cost'), rows=[['№','Дата','Клієнт','№ клієнта','Категорія','Матеріал','Друк','Розмір, мм','Тираж','Друк, м²','Відхід, м²','Сума','Оплачено','Борг',...(cst?['Собівартість','Прибуток']:[]),'Статус','Виконавець']];
+  for(const o of reportRows()){ const r=orderReport(o), n=x=>String(Math.round(x*100)/100).replace('.',',');
+    rows.push([o.id,dstr(o.d),cl(o.c).n,o.c,CATS[o.cat].n,o.name,qName(o.qk),o.w+'×'+o.h,o.tir*o.kits,n(r.area),n(r.waste),n(r.total),n(o.paid),n(r.due),...(cst?[n(r.cost),n(r.profit)]:[]),ST[o.st][0],o.who?staffN(o.who):'']); }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\n')],{type:'text/csv;charset=utf-8'})); a.download='zvit-zamovlennia.csv'; a.click();
 }
 
 /* =====================================================================
@@ -323,12 +396,12 @@ const OT=[['act','Активні',o=>open_(o)],['new','Нові',o=>o.st==='new'
 function pOrders(){
   const base=visibleOrders(), q=U.q.trim().toLowerCase(), tab=OT.find(t=>t[0]===U.otab);
   const ownF={all:()=>true,free:o=>!o.who,mine:o=>o.who===meId}[U.own];
-  const list=base.filter(tab[2]).filter(ownF).filter(o=>!q||String(o.id).includes(q)||cl(o.c).n.toLowerCase().includes(q)||o.name.toLowerCase().includes(q)||String(o.c).includes(q));
+  const list=base.filter(tab[2]).filter(ownF).filter(inDates).filter(o=>!q||String(o.id).includes(q)||cl(o.c).n.toLowerCase().includes(q)||o.name.toLowerCase().includes(q)||String(o.c).includes(q));
   const online=STAFF.filter(s=>s.online&&s.role!=='owner');
   app.innerHTML=pageH('Замовлення')+
   `<div class="seg">${OT.map(t=>`<a class="${t[0]===U.otab?'on':''}" data-act="otab" data-v="${t[0]}">${t[1]}<b>${base.filter(t[2]).length}</b></a>`).join('')}</div>
   <div class="cols narrow">
-  <div class="card flush"><div class="bar"><input class="inp" id="oq" placeholder="№ замовлення, клієнт, матеріал" value="${esc(U.q)}" style="max-width:300px"><span class="grow"></span>
+  <div class="card flush"><div class="bar"><input class="inp" id="oq" placeholder="№ замовлення, клієнт, матеріал" value="${esc(U.q)}" style="max-width:260px">${dateFilter()}<span class="grow"></span>
     <div class="seg" style="margin:0">${[['all','Усі'],['free','Вільні'],['mine','Мої']].map(([k,n])=>`<a class="${U.own===k?'on':''}" data-act="own" data-v="${k}">${n}</a>`).join('')}</div></div>
    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>№ / створено</th><th>Клієнт</th><th>Продукт</th><th>Готовність</th><th>Статус</th><th>Оплата</th><th class="r">Сума</th><th>Виконавець</th></tr></thead><tbody>
    ${list.map(o=>{ const g=`data-go="order/${o.id}"`, late=open_(o)&&dayKey(o.ready)<0;
@@ -379,11 +452,7 @@ function pOrder(id){
     <tr><td>Друк і опції</td><td>${fmt(o.sum)}</td></tr>${o.rework?`<tr><td>Доопрацювання</td><td>${fmt(o.rework)}</td></tr>`:''}
     <tr class="tot"><td>Разом</td><td>${fmt(o.sum+o.rework)}</td></tr><tr><td>Оплачено</td><td>${fmt(o.paid)}</td></tr><tr class="due"><td>До сплати</td><td>${fmt(due(o))}</td></tr></table>
     ${can('money')&&due(o)>0&&o.st!=='cancel'?`<div class="btns" style="margin-top:12px"><button class="btn sm" data-act="payBal" data-id="${o.id}" ${bal(o.c)<due(o)?`disabled title="На балансі ${fmt(bal(o.c))} грн"`:''}>Списати з балансу</button><button class="btn sm" data-act="mkInv" data-id="${o.id}">Рахунок</button></div>`:''}</div>
-   <div class="card"><div class="card-h"><h2>Собівартість і маржа</h2></div>${can('cost')?(k?`<table class="sum" style="font-size:13.5px">
-    <tr><td>Матеріал ${fmt1(k.L.used)} м² × ${matOf(o).cost}</td><td>${fmt(k.material)}</td></tr><tr><td class="muted">у т. ч. обрізок ${fmt1(k.waste)} м²</td><td class="muted">${fmt(k.waste*matOf(o).cost)}</td></tr>
-    <tr><td>Друк ${fmt1(k.L.printArea)} м² × ${INK[o.qk]||0}</td><td>${fmt(k.ink)}</td></tr>${k.extra?`<tr><td>Конструкції</td><td>${fmt(k.extra)}</td></tr>`:''}
-    <tr class="tot"><td>Собівартість</td><td>${fmt(k.cost)}</td></tr><tr><td>Маржа</td><td style="color:var(--ok);font-weight:700">${fmt(k.margin)} · ${fmt1(k.margin/(o.sum+o.rework)*100)}%</td></tr></table>`:'<span class="muted">Не вдалося розкласти</span>')
-     :`<div class="lock">Доступно від ролі «Менеджер+»</div>`}</div>
+   ${can('reports')||can('cost')?reportCard(o):''}
    <div class="card"><div class="card-h"><h2>Доставка</h2></div><dl class="kv2" style="grid-template-columns:90px minmax(0,1fr)"><dt>Спосіб</dt><dd>${o.deliv==='self'?'Самовивіз зі складу':'Нова Пошта'}</dd>
     ${o.deliv!=='self'?`<dt>ТТН</dt><dd><div style="display:flex;gap:6px"><input class="ed" id="ttn" value="${esc(o.ttn)}" placeholder="2045…"><button class="btn sm" data-act="ttn" data-id="${o.id}">OK</button></div></dd>`:''}</dl></div>
    ${can('assign')?`<div class="card"><div class="card-h"><h2>Призначити</h2></div><select class="sel" id="asg">${['<option value="">— вільне —</option>',...STAFF.filter(s=>s.role!=='owner').map(s=>`<option value="${s.id}" ${o.who===s.id?'selected':''}>${s.n} (${ROLES[s.role]})${s.online?'':' — не на зміні'}</option>`)].join('')}</select></div>`:''}
@@ -570,9 +639,12 @@ function sMats(){
       :`<div class="rolls">${m.rolls.map((r,j)=>`<span class="roll"><input class="ed w" type="number" data-s="mroll" data-i="${i}" data-j="${j}" value="${r}">${m.rolls.length>1?delBtn('sDelRoll',`data-i="${i}" data-j="${j}"`,'Прибрати ширину'):''}</span>`).join('')}<button class="btn sm" data-act="sAddRoll" data-i="${i}">+ ширина</button></div>`}</div>
     <div><div class="lbl">Поле під друк, см <span class="hint" title="Зазор навколо кожного виробу з кожного боку. Входить у використаний матеріал (обрізок). Порожньо — загальне значення з вкладки «Обрізок і поля».">?</span></div><input class="ed" type="number" step="0.5" data-s="mmargin" data-i="${i}" value="${m.margin??''}" placeholder="загальне: ${def}"></div>
     <div><div class="lbl">Собівартість, грн/м² <span class="hint" title="Скільки коштує 1 м² матеріалу без друку. Від неї рахується обрізок і маржа.">?</span></div><input class="ed" type="number" data-s="mcost" data-i="${i}" value="${m.cost}"></div>
+    <div><div class="lbl">Ціна відходу, грн/м² <span class="hint" title="Скільки клієнт платить за 1 м² матеріалу, що пішов у відхід (ширина рулону мінус виріб).">?</span></div><input class="ed" type="number" step="0.5" data-s="mwaste" data-i="${i}" value="${m.waste??''}" placeholder="собівартість + націнка"></div>
    </div>
    <div class="lbl" style="margin-top:14px">Ціна для клієнта з друком, грн/м² <span class="muted">— порожньо: ця якість для матеріалу недоступна</span></div>
-   <div class="qgrid">${c.q.map(k=>`<label><span>${qName(k)}</span><input class="ed" type="number" data-s="mpr" data-i="${i}" data-k="${k}" value="${m.pr[k]??''}" placeholder="недоступно"></label>`).join('')}</div></div>`).join('')+
+   <div class="qgrid">${c.q.map(k=>`<label><span>${qName(k)}</span><input class="ed" type="number" data-s="mpr" data-i="${i}" data-k="${k}" value="${m.pr[k]??''}" placeholder="недоступно"></label>`).join('')}</div>
+   ${c.fixed?`<div class="lbl" style="margin-top:14px">Фіксована ціна за штуку, грн <span class="muted">— порожньо: формат для матеріалу недоступний</span></div><div class="tbl-wrap"><table class="tbl compact" style="min-width:0"><thead><tr><th>Формат</th>${c.q.map(k=>`<th>${qName(k)}</th>`).join('')}</tr></thead><tbody>
+     ${c.std.map(z=>{ const key=z[0]+'x'+z[1]; return `<tr><td>${z[2]||''} ${z[0]}×${z[1]} мм</td>${c.q.map(k=>`<td class="e"><input class="ed" type="number" data-s="mfx" data-i="${i}" data-k="${k}" data-z="${key}" value="${(m.fx&&m.fx[key]&&m.fx[key][k])??''}" placeholder="—"></td>`).join('')}</tr>`; }).join('')}</tbody></table></div>`:''}</div>`).join('')+
   `<button class="btn" data-act="sAddMat">+ Матеріал</button>`;
 }
 
@@ -622,12 +694,15 @@ function sGeneral(){
   CFG.pvhCut=CFG.pvhCut||{base:1.98,perMm:0.66};
   const row=(l,s,v,hint,step=1)=>`<label>${l}${hint?` <span class="hint" title="${hint}">?</span>`:''}</label><input class="ed" type="number" step="${step}" data-s="${s}" value="${v}">`;
   return `<div class="card" style="max-width:720px"><div class="dset" style="grid-template-columns:1fr 120px">
-   ${row('Націнка на обрізок, %','gmarkup',CFG.markup*100,'Обрізок рахується за собівартістю матеріалу плюс ця націнка.')}
+   ${row('Запас по довжині рулону на кожен виріб, см','glenAdd',CFG.lenAdd,'Додається до довжини кожного виробу: 8 см = 0,08 м, як у робочій таблиці.')}
+   ${row('Пропайка швів при друці частинами, грн/м пог.','gseam',CFG.seam??80,'Для виробів, ширших за рулон.')}
+   ${row('Націнка на відхід, % (якщо в матеріалу не задано ціну відходу)','gmarkup',CFG.markup*100,'Відхід = собівартість матеріалу плюс ця націнка.')}
    ${row('Поле під друк для рулонів, см з кожного боку','gmarginRoll',CFG.marginRoll,'Зазор навколо кожного виробу на рулоні. Можна змінити для окремого матеріалу.',0.5)}
    ${row('Поле під друк для листів, см з кожного боку','gmarginSheet',CFG.marginSheet,'Те саме для листових матеріалів.',0.5)}
    ${row('Залишок листа вважається діловим від, см','gleftoverMin',CFG.leftoverMin,'Якщо смуга, що лишилась від листа, ширша — рахуємо тільки використану частину; вужча — весь лист.')}
    ${row('Порізка ПВХ: базовий тариф, грн/м пог.','gpvhBase',CFG.pvhCut.base,'Для ПВХ 1 мм.',0.01)}
-   ${row('Порізка ПВХ: + за кожен мм товщини, грн/м пог.','gpvhMm',CFG.pvhCut.perMm,'',0.01)}</div></div>`;
+   ${row('Порізка ПВХ: + за кожен мм товщини, грн/м пог.','gpvhMm',CFG.pvhCut.perMm,'',0.01)}</div>
+   <label class="check" style="margin-top:6px"><input type="checkbox" data-s="gnest" ${CFG.nest?'checked':''}>Розкладати тираж поруч по ширині рулону (менше відходу). Вимкнено — кожен виріб займає всю ширину рулону, як у робочій таблиці.</label></div>`;
 }
 
 function sLevels(){
@@ -726,6 +801,9 @@ function settingsChange(t){
     case 'mroll': if(n>0) m.rolls[j]=n; break; case 'msw': if(n>0) m.sheet[0]=n; break; case 'msh': if(n>0) m.sheet[1]=n; break;
     case 'mmargin': if(v==='') delete m.margin; else m.margin=n; break; case 'mcost': m.cost=n||0; break;
     case 'mpr': if(v==='') delete m.pr[d.k]; else m.pr[d.k]=n; break;
+    case 'mwaste': if(v==='') delete m.waste; else m.waste=n; break;
+    case 'mfx': { m.fx=m.fx||{}; const z=m.fx[d.z]=m.fx[d.z]||{}; if(v==='') delete z[d.k]; else z[d.k]=n; break; }
+    case 'glenAdd': CFG.lenAdd=n||0; break; case 'gseam': CFG.seam=n||0; break; case 'gnest': CFG.nest=t.checked; break;
     case 'qcat': { const C=CATS[d.cat]; if(t.checked){ if(!C.q.includes(d.k)) C.q.push(d.k); } else { C.q=C.q.filter(x=>x!==d.k); } redraw=true; break; }
     case 'qn': Q[d.k].n=v; break; case 'qt': Q[d.k].t=v; break; case 'qink': INK[d.k]=n||0; break;
     case 'otitle': OPT[d.key].l=v; break; case 'otype': OPT[d.key].t=v; break;
@@ -769,12 +847,12 @@ function pStaff(){
 /* =====================================================================
    МАРШРУТИ, ДІЇ
    ===================================================================== */
-const PAGES={dash:pDash,orders:pOrders,order:pOrder,prepress:pPrepress,production:pProduction,clients:pClients,client:pClient,money:pMoney,settings:pSettings,staff:pStaff};
+const PAGES={reports:pReports,dash:pDash,orders:pOrders,order:pOrder,prepress:pPrepress,production:pProduction,clients:pClients,client:pClient,money:pMoney,settings:pSettings,staff:pStaff};
 function go(id){ try{ history.pushState(null,'','#'+id); }catch(e){} route(id); }
 function route(id){
   if(id==null) id=location.hash.slice(1)||'dash';
   const [pg,arg]=id.split('/'); U.page=PAGES[pg]?pg:'dash'; U.arg=arg;
-  if(U.page!=='orders'&&U.page!=='clients') U.q='';
+  if(!['orders','clients','reports'].includes(U.page)) U.q='';
   closeModal(); render(); window.scrollTo(0,0);
 }
 function render(){ renderWho(); document.querySelector('.alay').classList.toggle('solo',!ME()); if(!ME()){ $('#side').innerHTML=''; $('#side').style.display='none'; pLogin(); return; } $('#side').style.display=''; renderSide(); PAGES[U.page](U.arg); }
@@ -811,6 +889,8 @@ document.addEventListener('click',e=>{
       if(!s){ $('#lgErr').textContent='Невірний email або пароль'; return; }
       setMe(s.id); s.online=true; s.seen=new Date(); go('dash'); break; }
     case 'logout': { const s=ME(); if(s){ s.online=false; s.seen=new Date(); releaseOrders(s); } setMe(null); render(); break; }
+    case 'fClear': U.df='';U.dt='';U.q=''; rr(); break;
+    case 'repCsv': reportCsv(); break;
     case 'period': U.period=+v; rr(); break;
     case 'otab': U.otab=v; rr(); break;
     case 'own': U.own=v; rr(); break;
@@ -858,6 +938,9 @@ document.addEventListener('change',e=>{
   const t=e.target, d=t.dataset;
   if(t.id==='asg'){ const o=ord(U.arg); o.who=t.value?+t.value:null; logO(o,o.who?`призначено: ${staffN(o.who)}`:'знято виконавця'); rr(); return; }
   if(t.id==='lvl'){ const c=cl(+d.id); c.level=t.value; rr(); return; }
+  if(t.id==='fDf'){ U.df=t.value; rr(); return; }
+  if(t.id==='fDt'){ U.dt=t.value; rr(); return; }
+  if(t.id==='fSt'){ U.rst=t.value; rr(); return; }
   if(d.role){ if(!isOwner()) return; STAFF.find(s=>s.id===+d.role).role=t.value; rr(); return; }
   if(d.perm){ if(!isOwner()) return; const r=roleOf(d.roleId); if(r.fixed) return; r.perms=t.checked?[...new Set([...r.perms,d.perm])]:r.perms.filter(x=>x!==d.perm); rr(); return; }
   if(d.rname){ if(!isOwner()) return; const r=roleOf(d.rname); r.n=t.value.trim()||r.n; syncRoles(); rr(); return; }

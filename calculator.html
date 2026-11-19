@@ -7,7 +7,7 @@
 <title>Широкоформатний друк</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="app.css?v=2">
 </head>
 <body>
 
@@ -31,7 +31,7 @@
 <aside class="drawer" id="drawer"></aside>
 <div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
 
-<script src="shared.js"></script>
+<script src="shared.js?v=2"></script>
 <script>
 /* =====================================================================
    РЕНДЕР
@@ -43,7 +43,7 @@ const crumbs=extra=>`<div class="crumbs"><a data-go="">Оформлення но
   <div class="tabs"><a>Продукти</a><a class="on" data-go="">Широкоформатний друк</a><a title="Обране">☆</a></div>`;
 
 function renderHome(){
-  app.innerHTML=crumbs()+`<div class="tiles">${ORDER.map(id=>{const c=CATS[id];return `<a class="tile" data-go="${id}"><div class="ico">${I[c.ico]}</div><b>${c.n}</b><span>${c.d}</span></a>`}).join('')}</div>`;
+  app.innerHTML=crumbs()+`<div class="tiles">${ORDER.filter(id=>!CATS[id].hidden).map(id=>{const c=CATS[id];return `<a class="tile" data-go="${id}"><div class="ico">${I[c.ico]}</div><b>${c.n}</b><span>${c.d}</span></a>`}).join('')}</div>`;
 }
 function infoBlock(){
   const L=[['doc','Інструкція по оформленню замовлення'],['printer','Якість друку'],['layers','Матеріали'],['chat','Ваш відгук'],['clock','Терміни друку'],['width','Ширина матеріалів та друку'],['tag','Зразки матеріалів з друком'],['warn','Знайшли помилку?']];
@@ -76,6 +76,8 @@ function renderSize(){
   let left=`<div class="lbl">Оберіть стандартний:</div><select class="sel" id="stdSel">${stdOpts}</select>`;
   if(c.kind==='stand'){
     left+=`<div class="stand-modes">${['Конструкція + друк банера','Друк банера без конструкції','Конструкція без друку'].map((t,i)=>`<label class="radio"><input type="radio" name="sm" value="${i}" ${i===S.standMode?'checked':''}>${t}</label>`).join('')}</div>`;
+  } else if(c.fixed){
+    left+=`<p class="muted" style="font-size:13px;margin:12px 0 0">Стандартні формати за фіксованою ціною за штуку. Потрібен інший розмір — оберіть категорію «Папір» або «Банер», там ціна рахується за площею.</p>`;
   } else {
     const rows=S.sizes.length?S.sizes:[{w:'',h:''}];
     left+=`<div class="lbl" style="margin-top:16px">Введіть свій:</div>`+rows.map((r,i)=>`
@@ -154,7 +156,7 @@ function renderOpts(){
   }
   if(isBigItem()){
     const v=o.big||0;
-    const ch=c.big==='weld'?['Зпаювання +24 грн м/пог (вертикальне по вужчій стороні) (+ 1 день до терміну друку)','Віддати частинами']:['Віддати частинами'];
+    const ch=c.big==='weld'?['Пропайка швів +80 грн м/пог (вертикальне по вужчій стороні) (+ 1 день до терміну друку)','Віддати частинами']:['Віддати частинами'];
     h+=`<div class="opt"><div class="ol">Великий розмір<div style="font-size:11.5px;color:var(--muted);font-weight:400">Виріб ширший за друк — друкується частинами</div></div><div class="ctl"><div class="chips">${ch.map((t,i)=>`<div class="chip ${i===v?'on':''}" data-o="big" data-v="${i}">${t}</div>`).join('')}</div></div></div>`;
   }
   $('#optCard').innerHTML=h;
@@ -273,7 +275,7 @@ function renderDrawerCalc(){
   else h+=`<tr><td>Друк ${fmt1(L.printArea)} м² × ${fmt1(m.pr[qk]*p.o.k+(p.info.lam||0))}</td><td>${fmt(p.info.printCost)}</td></tr>
     <tr><td>Обрізок ${fmt1(p.info.waste)} м² × ${fmt1(m.cost)} × ${fmt1(1+CFG.markup)}</td><td>${fmt(p.info.wasteCost)}</td></tr>
     ${p.o.lines.map(l=>`<tr><td>${l[0]}</td><td>${fmt(l[1])}</td></tr>`).join('')}
-    ${p.info.seamCost?`<tr><td>Зпаювання частин ${fmt1(L.seam/100)} м × 24</td><td>${fmt(p.info.seamCost)}</td></tr>`:''}`;
+    ${p.info.seamCost?`<tr><td>Зпаювання частин ${fmt1(L.seam/100)} м × 80</td><td>${fmt(p.info.seamCost)}</td></tr>`:''}`;
   h+=`<tr><td>Термін ×${t.k}</td><td>${fmt(p.afterTerm)}</td></tr>${p.vd?`<tr><td>Знижка за тираж −${fmt1(p.vd*100)}%</td><td></td></tr>`:''}${p.lv?`<tr><td>Рівень клієнта −${p.lv*100}%</td><td></td></tr>`:''}${p.deliv?`<tr><td>Доставка (орієнтовно)</td><td>${fmt(p.deliv)}</td></tr>`:''}
     <tr><td><b>Разом</b></td><td><b>${fmt(p.total)}</b></td></tr></table></div>`;
   if(L){
@@ -404,15 +406,15 @@ const ME={id:10245,name:'Олена Коваль',phone:'+380 67 123 45 67',emai
   notify:{email:true,sms:false,news:false}};
 
 const ORDERS=[
-  {id:48231,d:dt(0,9,40),cat:'banner',name:'Банер 440 лам',q:'720 dpi',size:'3000 × 1000 мм',tir:2,kits:1,opts:['Порізка: в заданому розмірі','Люверсовка по периметру, 10 мм, крок 300 мм'],term:'Стандарт 1 день',ready:dt(1,18),sum:1340.40,paid:0,st:'check',deliv:{t:'np',r:0},files:[{n:'banner_3000x1000.pdf',st:'wait'}]},
-  {id:48217,d:dt(-1,15,12),cat:'film',name:'Плівка ГЛ Oracal + ламінація матова',q:'1440 dpi',size:'500 × 700 мм',tir:10,kits:2,opts:['Плотерна порізка: проста, 2,4 м пог./шт'],term:'Економ 2 дні',ready:dt(1,18),sum:2186.00,paid:0,st:'fix',
+  {id:48231,d:dt(0,9,40),cat:'banner',name:'Банер ламінований 440 г',q:'Сольвент',size:'3000 × 1000 мм',tir:2,kits:1,opts:['Порізка: в заданому розмірі','Люверсовка по периметру, 10 мм, крок 300 мм'],term:'Стандарт 1 день',ready:dt(1,18),sum:1340.40,paid:0,st:'check',deliv:{t:'np',r:0},files:[{n:'banner_3000x1000.pdf',st:'wait'}]},
+  {id:48217,d:dt(-1,15,12),cat:'film',name:'Плівка біла з ламінацією (Orajet 3640)',q:'ЕКО Сольвент',size:'500 × 700 мм',tir:10,kits:2,opts:['Висічка: плівка з ламінацією'],term:'Стандарт 1 день',ready:dt(1,18),sum:2186.00,paid:0,st:'fix',
     fix:'Текст ближче ніж 5 мм до лінії порізки; шрифти не переведені в криві.',deliv:{t:'self'},files:[{n:'stickers_v1.pdf',st:'bad'},{n:'stickers_2.pdf',st:'ok'}]},
-  {id:48190,d:dt(-2,11,5),cat:'paper',name:'City-light 150',q:'1440 dpi',size:'1200 × 1800 мм',tir:4,kits:1,opts:['Порізка в розмір'],term:'Стандарт 1 день',ready:dt(0,18),sum:1508.60,paid:1508.60,st:'print',deliv:{t:'np',r:0},files:[{n:'citylight_1200x1800.tif',st:'ok'}]},
-  {id:48152,d:dt(-3,10,20),cat:'pvh',name:'ПВХ 3 мм',q:'1440 УФ CMYK',size:'600 × 400 мм',tir:5,kits:1,opts:['Порізка','Отвір: 4 шт/виріб'],term:'Стандарт 1 день',ready:dt(-1,18),sum:1912.00,paid:1912,st:'ready',deliv:{t:'self'},files:[{n:'tablychky.pdf',st:'ok'}]},
-  {id:48101,d:dt(-6,14,0),cat:'canvas',name:'Полотно Matt 340 натуральне',q:'1440 Фото',size:'600 × 900 мм',tir:1,kits:1,opts:['Підрамник','Натягування: галерейне','Кріплення: підвіси'],term:'4 дні',ready:dt(-2,18),sum:1146.30,paid:1146.30,st:'sent',deliv:{t:'np',r:1,ttn:'20450912345678'},files:[{n:'kartyna.jpg',st:'ok'}]},
-  {id:47988,d:dt(-12,12,30),cat:'stands',name:'X-банер + друк (банер 440 лит)',q:'1440 dpi',size:'800 × 1800 мм',tir:2,kits:1,opts:['Конструкція + друк'],term:'Стандарт 1 день',ready:dt(-11,18),sum:1188.00,paid:1188,st:'done',deliv:{t:'np',r:0,ttn:'20450900011122'},files:[{n:'xbanner.pdf',st:'ok'}]},
-  {id:47950,d:dt(-14,16,45),cat:'banner',name:'Сітка Mesh',q:'720 dpi',size:'6000 × 3000 мм',tir:1,kits:1,opts:['Люверсовка по периметру, крок 300 мм','Зпаювання підворота по периметру'],term:'Економ 2 дні',ready:dt(-12,18),sum:2310.50,paid:2310.50,st:'done',deliv:{t:'self'},files:[{n:'fasad_mesh.pdf',st:'ok'}]},
-  {id:47911,d:dt(-16,10,5),cat:'film',name:'One Way Vision',q:'1440 dpi',size:'1200 × 900 мм',tir:3,kits:1,opts:[],term:'Стандарт 1 день',ready:dt(-15,18),sum:964.80,paid:0,st:'cancel',deliv:{t:'self'},files:[]},
+  {id:48190,d:dt(-2,11,5),cat:'paper',name:'Папір City-light (білий)',q:'ЕКО Сольвент',size:'1200 × 1800 мм',tir:4,kits:1,opts:['Ручна порізка'],term:'Стандарт 1 день',ready:dt(0,18),sum:1508.60,paid:1508.60,st:'print',deliv:{t:'np',r:0},files:[{n:'citylight_1200x1800.tif',st:'ok'}]},
+  {id:48152,d:dt(-3,10,20),cat:'posters',name:'Плакат А1, папір City-light',q:'ЕКО Сольвент',size:'594 × 841 мм',tir:5,kits:1,opts:[],term:'Стандарт 1 день',ready:dt(-1,18),sum:1912.00,paid:1912,st:'ready',deliv:{t:'self'},files:[{n:'tablychky.pdf',st:'ok'}]},
+  {id:48101,d:dt(-6,14,0),cat:'canvas',name:'Холст напівсинтетика',q:'ЕКО Сольвент 1440 dpi',size:'600 × 900 мм',tir:1,kits:1,opts:['Рама дерев’яна','Натяжка на раму'],term:'Стандарт 1 день',ready:dt(-2,18),sum:1146.30,paid:1146.30,st:'sent',deliv:{t:'np',r:1,ttn:'20450912345678'},files:[{n:'kartyna.jpg',st:'ok'}]},
+  {id:47988,d:dt(-12,12,30),cat:'banner',name:'Банер литий 440 г',q:'ЕКО Сольвент',size:'800 × 1800 мм',tir:2,kits:1,opts:['Ручна порізка в розмір'],term:'Стандарт 1 день',ready:dt(-11,18),sum:1188.00,paid:1188,st:'done',deliv:{t:'np',r:0,ttn:'20450900011122'},files:[{n:'xbanner.pdf',st:'ok'}]},
+  {id:47950,d:dt(-14,16,45),cat:'banner',name:'Банерна сітка Mesh',q:'Сольвент',size:'6000 × 3000 мм',tir:1,kits:1,opts:['Люверсовка по периметру, крок 300 мм','Зпаювання підворота по периметру'],term:'Стандарт 1 день',ready:dt(-12,18),sum:2310.50,paid:2310.50,st:'done',deliv:{t:'self'},files:[{n:'fasad_mesh.pdf',st:'ok'}]},
+  {id:47911,d:dt(-16,10,5),cat:'film',name:'Плівка перфорована (One Way Vision)',q:'ЕКО Сольвент',size:'1200 × 900 мм',tir:3,kits:1,opts:[],term:'Стандарт 1 день',ready:dt(-15,18),sum:964.80,paid:0,st:'cancel',deliv:{t:'self'},files:[]},
 ];
 let MSGS=[
   {id:7,d:dt(0,9,41),from:'Система',o:48231,t:'Замовлення №48231 прийнято. Макет передано на перевірку — зазвичай це до 30 хвилин у робочий час.',read:false},
