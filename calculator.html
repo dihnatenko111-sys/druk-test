@@ -80,7 +80,7 @@ function renderSize(){
     const rows=S.sizes.length?S.sizes:[{w:'',h:''}];
     left+=`<div class="lbl" style="margin-top:16px">Введіть свій:</div>`+rows.map((r,i)=>`
       <div class="own" data-i="${i}"><input class="inp" data-k="w" placeholder="Ширина" type="number" min="0" value="${r.w}"><span class="x">×</span><input class="inp" data-k="h" placeholder="Висота" type="number" min="0" value="${r.h}">
-      ${i===0?`<select class="sel" id="unit"><option value="mm" ${S.unit==='mm'?'selected':''}>мм</option><option value="cm" ${S.unit==='cm'?'selected':''}>см</option></select>`:'<span></span>'}
+      <select class="sel" data-unit aria-label="Одиниці"><option value="mm" ${S.unit==='mm'?'selected':''}>мм</option><option value="cm" ${S.unit==='cm'?'selected':''}>см</option></select>
       ${i>0?`<button class="rm" data-rm="${i}" title="Видалити">×</button>`:'<span></span>'}</div>`).join('')+
       `<button class="btn" id="addSize" style="margin-top:8px">Додати ще один розмір</button>`+
       (c.fixed?`<p class="muted" style="font-size:13px;margin:12px 0 0">Стандартні формати — за фіксованою ціною за штуку. Свій розмір рахується за площею.</p>`:'');
@@ -351,7 +351,7 @@ app.addEventListener('input',e=>{
 app.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='stdSel'){ S.std=+t.value; S.sizes=[]; renderSize(); refresh(true); return; }
-  if(t.id==='unit'){ const k=t.value==='mm'?10:0.1; S.sizes.forEach(s=>{ if(s.w!=='') s.w=+(s.w*k).toFixed(2); if(s.h!=='') s.h=+(s.h*k).toFixed(2); }); S.unit=t.value; renderSize(); refresh(); return; }
+  if(t.dataset.unit!=null){ const k=t.value==='mm'?10:0.1; S.sizes.forEach(s=>{ if(s.w!=='') s.w=+(s.w*k).toFixed(2); if(s.h!=='') s.h=+(s.h*k).toFixed(2); }); S.unit=t.value; renderSize(); refresh(); return; }
   if(t.dataset.o){ S.opts[t.dataset.o]=+t.value; refresh(true); return; }
   if(t.name==='sm'){ S.standMode=+t.value; refresh(); return; }
   if(t.name==='pl'){ S.plotLen.mode=+t.value; refresh(); return; }
