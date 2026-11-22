@@ -2,12 +2,11 @@
 <html lang="uk">
 <head>
 <meta charset="utf-8">
-<meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Широкоформатний друк</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=7">
+<link rel="stylesheet" href="app.css?v=8">
 </head>
 <body>
 
@@ -31,7 +30,7 @@
 <aside class="drawer" id="drawer"></aside>
 <div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
 
-<script src="shared.js?v=7"></script>
+<script src="shared.js?v=8"></script>
 <script>
 /* =====================================================================
    РЕНДЕР
@@ -122,8 +121,8 @@ function renderSize(){
   } else {
     const rows=S.sizes.length?S.sizes:[{w:'',h:''}];
     left+=`<div class="lbl" style="margin-top:16px">Введіть свій:</div>`+rows.map((r,i)=>`
-      <div class="own" data-i="${i}"><input class="inp" data-k="w" placeholder="Ширина" type="number" min="0" value="${r.w}"><span class="x">×</span><input class="inp" data-k="h" placeholder="Висота" type="number" min="0" value="${r.h}">
-      <select class="sel" data-unit aria-label="Одиниці"><option value="mm" ${(r.u||S.unit)==='mm'?'selected':''}>мм</option><option value="cm" ${(r.u||S.unit)==='cm'?'selected':''}>см</option></select>
+      <div class="own" data-i="${i}"><input class="inp" data-k="w" placeholder="Ширина, мм" type="number" min="0" value="${r.w}" aria-label="Ширина, мм"><span class="x">×</span><input class="inp" data-k="h" placeholder="Висота, мм" type="number" min="0" value="${r.h}" aria-label="Висота, мм">
+      <span class="unit">мм</span>
       ${i>0?`<button class="rm" data-rm="${i}" title="Видалити">×</button>`:'<span></span>'}</div>`).join('')+
       `<button class="btn" id="addSize" style="margin-top:8px">Додати ще один розмір</button>`+
       (c.fixed?`<p class="muted" style="font-size:13px;margin:12px 0 0">Стандартні формати — за фіксованою ціною за штуку. Свій розмір рахується за площею.</p>`:'');
@@ -132,34 +131,56 @@ function renderSize(){
   renderPreview();
 }
 
+// поділ на частини: скільки частин і в якому напрямку (для прев'ю і опису замовлення)
+function splitOf(c,ts){
+  const lim=c.kind==='roll'&&c.mats.some(m=>m.rolls)?printLimit(c):Infinity; if(Math.min(ts.w,ts.h)<=lim+1e-9) return null;
+  const ov=c.big==='weld'?4:(CFG.overlap??20)/10, need=L=>L<=lim+1e-9?1:Math.ceil((L-ov)/(lim-ov)), nV=need(ts.w), nH=need(ts.h), dir=S.opts.split||0;
+  const vert=dir===1?true:dir===2?false:nV<=nH; return {vert,n:vert?nV:nH,ov};
+}
+function partsInfo(c){ const s=curSizes()[0]; if(!s) return ''; const x=splitOf(c,techSizes([s])[0]); return x?`${x.n} част. з ${c.big==='weld'?'спайкою':'нахльостом'} ${x.ov*10} мм`:''; }
 function renderPreview(){
   const c=curCat(), sizes=curSizes(), o=S.opts; const pv=$('#pv'); if(!pv) return;
   if(!sizes.length){ pv.innerHTML='<span style="color:var(--muted)">Вкажіть розмір</span>'; return; }
-  const show=sizes.slice(0,4), box=show.length>1?140:210;
-  pv.innerHTML=show.map(s=>{
-    const k=box/Math.max(s.w,s.h), w=Math.max(18,s.w*k), h=Math.max(18,s.h*k), pad=10;
-    let g=`<rect x="${pad}" y="${pad}" width="${w}" height="${h}" rx="2" fill="var(--card)" stroke="var(--ink)" stroke-opacity=".35"/>`;
+  const show=sizes.slice(0,4), box=show.length>1?150:230;
+  const pc=S.cat==='banner'?OPT.pocket.c[o.pocket||0]:null, wrap=S.cat==='canvas'&&S.vid===0?OPT.wrap.c[o.wrap||0]:null;
+  pv.innerHTML=show.map((s,si)=>{
+    const k=box/Math.max(s.w,s.h), w=Math.max(24,s.w*k), h=Math.max(24,s.h*k), pad=16, gid='pvg'+si, ts=techSizes([s])[0];
+    const band=wrap?Math.max(7,4*k):0, X=pad+band, Y=pad+band; // поле загину холста
+    // стандартне зображення-приклад з водяним знаком
+    let g=`<defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7dd3fc"/><stop offset=".55" stop-color="#a78bfa"/><stop offset="1" stop-color="#f9a8d4"/></linearGradient>
+      <clipPath id="${gid}c"><rect x="${X-band}" y="${Y-band}" width="${w+2*band}" height="${h+2*band}"/></clipPath></defs>`;
+    const img=`<g clip-path="url(#${gid}c)"><rect x="${X-band}" y="${Y-band}" width="${w+2*band}" height="${h+2*band}" fill="url(#${gid})"/><circle cx="${X+w*.72}" cy="${Y+h*.3}" r="${Math.min(w,h)*.12}" fill="#fff" fill-opacity=".7"/>
+      <path d="M${X-band} ${Y+h+band}L${X+w*.32} ${Y+h*.5}L${X+w*.55} ${Y+h*.75}L${X+w*.78} ${Y+h*.45}L${X+w+band} ${Y+h+band}z" fill="#4c1d95" fill-opacity=".35"/></g>`;
+    if(wrap&&!wrap.print) g+=`<rect x="${X-band}" y="${Y-band}" width="${w+2*band}" height="${h+2*band}" fill="var(--card)" stroke="var(--ink)" stroke-opacity=".3"/><g clip-path="url(#${gid}c)"><rect x="${X}" y="${Y}" width="${w}" height="${h}" fill="url(#${gid})"/></g>`;
+    else g+=img;
+    if(wrap) g+=`<rect x="${X}" y="${Y}" width="${w}" height="${h}" fill="none" stroke="#fff" stroke-dasharray="4 3"/>`;
+    g+=`<rect x="${X-band}" y="${Y-band}" width="${w+2*band}" height="${h+2*band}" rx="1" fill="none" stroke="var(--ink)" stroke-opacity=".35"/>`;
+    g+=`<text x="${X+w/2}" y="${Y+h/2}" transform="rotate(-28 ${X+w/2} ${Y+h/2})" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(9,Math.min(w,h)/5)}" font-weight="700" letter-spacing="2" fill="#fff" fill-opacity=".7">ПРИКЛАД</text>`;
     if(c.kind==='stand'){ const v=c.vids[S.vid].ico;
-      if(v==='x') g+=`<path d="M${pad} ${pad}L${pad-8} ${pad+h+16}M${pad+w} ${pad}L${pad+w+8} ${pad+h+16}" stroke="var(--muted)"/>`;
-      if(v==='roll') g+=`<rect x="${pad-4}" y="${pad+h}" width="${w+8}" height="6" rx="2" fill="var(--muted)"/>`;
-      if(v==='wall') g+=`<path d="M${pad} ${pad+h}v14M${pad+w} ${pad+h}v14" stroke="var(--muted)"/>`;
-      if(v==='clip') g+=`<rect x="${pad-3}" y="${pad-3}" width="${w+6}" height="6" fill="var(--muted)"/><rect x="${pad-3}" y="${pad+h-3}" width="${w+6}" height="6" fill="var(--muted)"/>`; }
-    if(S.cat==='canvas'&&S.vid===0) g+=`<rect x="${pad+5}" y="${pad+5}" width="${w-10}" height="${h-10}" fill="none" stroke="var(--accent)" stroke-dasharray="3 3"/>`;
+      if(v==='x') g+=`<path d="M${X} ${Y}L${X-8} ${Y+h+14}M${X+w} ${Y}L${X+w+8} ${Y+h+14}" stroke="var(--muted)"/>`;
+      if(v==='roll') g+=`<rect x="${X-4}" y="${Y+h}" width="${w+8}" height="6" rx="2" fill="var(--muted)"/>`;
+      if(v==='wall') g+=`<path d="M${X} ${Y+h}v12M${X+w} ${Y+h}v12" stroke="var(--muted)"/>`;
+      if(v==='clip') g+=`<rect x="${X-3}" y="${Y-3}" width="${w+6}" height="6" fill="var(--muted)"/><rect x="${X-3}" y="${Y+h-3}" width="${w+6}" height="6" fill="var(--muted)"/>`; }
+    // спайки / шви при друці частинами
+    const sp=c.kind==='roll'?splitOf(c,ts):null;
+    if(sp) for(let i2=1;i2<sp.n;i2++){ const f=i2/sp.n; g+=sp.vert?`<line x1="${X+w*f}" x2="${X+w*f}" y1="${Y-4}" y2="${Y+h+4}" stroke="var(--bad)" stroke-width="1.5" stroke-dasharray="5 3"/>`:`<line y1="${Y+h*f}" y2="${Y+h*f}" x1="${X-4}" x2="${X+w+4}" stroke="var(--bad)" stroke-width="1.5" stroke-dasharray="5 3"/>`; }
     if(S.cat==='banner'){
-      const pc=OPT.pocket.c[o.pocket||0]; const t=7;
-      if(pc.sides) for(const sd of pc.sides) g+=sd==='t'?`<rect x="${pad}" y="${pad}" width="${w}" height="${t}" fill="var(--accent)" opacity=".25"/>`:sd==='b'?`<rect x="${pad}" y="${pad+h-t}" width="${w}" height="${t}" fill="var(--accent)" opacity=".25"/>`:sd==='l'?`<rect x="${pad}" y="${pad}" width="${t}" height="${h}" fill="var(--accent)" opacity=".25"/>`:`<rect x="${pad+w-t}" y="${pad}" width="${t}" height="${h}" fill="var(--accent)" opacity=".25"/>`;
+      // кишені — штрихом, висота в масштабі
+      if(pc&&pc.sides){ const t=Math.max(5,pocketH()/10*k); for(const sd of pc.sides) g+=`<rect ${sd==='t'?`x="${X}" y="${Y}" width="${w}" height="${t}"`:sd==='b'?`x="${X}" y="${Y+h-t}" width="${w}" height="${t}"`:sd==='l'?`x="${X}" y="${Y}" width="${t}" height="${h}"`:`x="${X+w-t}" y="${Y}" width="${t}" height="${h}"`} fill="var(--card)" fill-opacity=".35" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="4 3"/>`; }
       const ey=OPT.eyel.c[o.eyel||0];
-      if(ey.pos){ const st=OPT.eyelStep.c[o.eyelStep??4].step, pts=[], P=(x,y)=>pts.push([pad+4+x*(w-8),pad+4+y*(h-8)]);
+      if(ey.pos){ const st=OPT.eyelStep.c[o.eyelStep??4].step, pts=[], P=(x,y)=>pts.push([X+4+x*(w-8),Y+4+y*(h-8)]);
         const line=(n,f)=>{for(let i=0;i<n;i++) f(i/(n-1));};
         const nW=Math.min(24,Math.max(2,Math.ceil(s.w/st)+1)), nH=Math.min(24,Math.max(2,Math.ceil(s.h/st)+1)), p=ey.pos;
         if(p==='c4'){P(0,0);P(1,0);P(0,1);P(1,1);}
         else if(p==='c8'){[[0,0],[.5,0],[1,0],[0,.5],[1,.5],[0,1],[.5,1],[1,1]].forEach(([x,y])=>P(x,y));}
         else { if(p==='trbl'||p.includes('t')) line(nW,t=>P(t,0)); if(p==='trbl'||p.includes('b')) line(nW,t=>P(t,1)); if(p==='trbl'||p.includes('l')) line(nH,t=>P(0,t)); if(p==='trbl'||p.includes('r')) line(nH,t=>P(1,t)); }
-        g+=pts.map(([x,y])=>`<circle cx="${x}" cy="${y}" r="2.2" fill="none" stroke="var(--ink)" stroke-opacity=".6"/>`).join(''); }
+        g+=pts.map(([x,y])=>`<circle cx="${x}" cy="${y}" r="2.4" fill="#fff" stroke="var(--ink)" stroke-opacity=".7"/>`).join(''); }
     }
-    return `<div style="text-align:center"><svg width="${w+2*pad+16}" height="${h+2*pad+18}" viewBox="-8 0 ${w+2*pad+16} ${h+2*pad+18}">${g}</svg>
-      <div style="font-size:13px">${fmt1(s.w*10)} x ${fmt1(s.h*10)} мм<br><b>(${fmt1(s.w*s.h/1e4)} м²)</b></div></div>`;
-  }).join('')+(sizes.length>4?`<div style="color:var(--muted)">+ ще ${sizes.length-4}</div>`:'');
+    const W2=w+2*X, H2=h+2*Y, tech=Math.abs(ts.w-s.w)>.01||Math.abs(ts.h-s.h)>.01;
+    return `<div style="text-align:center"><svg width="${W2}" height="${H2}" viewBox="0 0 ${W2} ${H2}" role="img" aria-label="Приклад виробу ${fmt1(s.w*10)} на ${fmt1(s.h*10)} мм">${g}</svg>
+      <div style="font-size:13px">${fmt1(s.w*10)} × ${fmt1(s.h*10)} мм <b>(${fmt1(s.w*s.h/1e4)} м²)</b>${tech?`<br><span class="muted">з припусками ${fmt1(ts.w*10)} × ${fmt1(ts.h*10)} мм</span>`:''}${sp?`<br><span style="color:var(--bad)">друк частинами: ${sp.n} шт, ${c.big==='weld'?'спайка':'нахльост'} ${sp.ov*10} мм</span>`:''}</div></div>`;
+  }).join('')+(sizes.length>4?`<div style="color:var(--muted)">+ ще ${sizes.length-4}</div>`:'')+
+  `<div class="pv-note">Зображення — приклад. Пропорції, кишені, люверси й шви — за вашими параметрами.</div>`;
 }
 
 function optHint(def,ch){
@@ -188,6 +209,7 @@ function renderOpts(){
     const val=o[def.id]??def.def??0; let ctl='';
     if(def.t==='select') ctl=`<select class="sel" data-o="${def.id}">${def.c.map((ch,i)=>`<option value="${i}" ${i===val?'selected':''}>${ch.l}</option>`).join('')}</select>`;
     else if(def.t==='chips') ctl=`<div class="chips">${def.c.map((ch,i)=>`<div class="chip ${i===val?'on':''}" data-o="${def.id}" data-v="${i}">${ch.l==='Ні'?I.no:''}${ch.l}</div>`).join('')}</div>`;
+    else if(def.t==='num') ctl=`<input class="inline-in" type="number" min="20" step="10" data-on="${def.id}" value="${o[def.id]??def.def??''}" aria-label="${esc(def.l)}"> мм`;
     else if(def.t==='plotlen'){ const p=S.plotLen;
       ctl=`<div style="display:grid;gap:8px">
         <label class="radio"><input type="radio" name="pl" value="0" ${p.mode===0?'checked':''}>Я знаю довжину: <input class="inline-in" data-pl="len" type="number" value="${p.len}"> мм</label>
@@ -199,7 +221,9 @@ function renderOpts(){
   if(isBigItem()){
     const v=o.big||0;
     const ch=c.big==='weld'?['Пропайка швів +80 грн м/пог (вертикальне по вужчій стороні) (+ 1 день до терміну друку)','Віддати частинами']:['Віддати частинами'];
-    h+=`<div class="opt"><div class="ol">Великий розмір<div style="font-size:11.5px;color:var(--muted);font-weight:400">Виріб ширший за друк — друкується частинами</div></div><div class="ctl"><div class="chips">${ch.map((t,i)=>`<div class="chip ${i===v?'on':''}" data-o="big" data-v="${i}">${t}</div>`).join('')}</div></div></div>`;
+    const sp=o.split||0, lim=printLimit(c), pi=partsInfo(c);
+    h+=`<div class="opt"><div class="ol">Великий розмір<div style="font-size:11.5px;color:var(--muted);font-weight:400">Ширина друку — до ${Math.round(lim*10)} мм (екосольвент і УФ — до ${Math.max(...Object.values(CFG.printMax))} мм). Ширший виріб друкується частинами${pi?`: ${pi}`:''}</div></div><div class="ctl"><div class="chips">${ch.map((t,i)=>`<div class="chip ${i===v?'on':''}" data-o="big" data-v="${i}">${t}</div>`).join('')}</div></div></div>
+     <div class="opt sub"><div class="ol">Як ділити</div><div class="ctl"><div class="chips">${['Автоматично — менше частин','Уздовж (вертикальні шви)','Упоперек (горизонтальні шви)'].map((t,i)=>`<div class="chip ${i===sp?'on':''}" data-o="split" data-v="${i}">${t}</div>`).join('')}</div></div></div>`;
   }
   $('#optCard').innerHTML=h;
 }
@@ -238,8 +262,7 @@ function renderPrice(){
   let h=`<div class="ptbl-wrap"><table class="ptbl"><thead><tr>
     <th rowspan="2" style="width:22%">Матеріал</th><th rowspan="2" style="width:11%">${qLab}</th><th rowspan="2" style="width:14%">готовність</th>
     <th colspan="${S.tir.length}"><div class="tg">
-      <span style="margin-right:auto">${S.delivery?'Вартість з доставкою':'Вартість без врахування доставки'}</span>
-      <label class="tgl"><input type="checkbox" id="tDel" ${S.delivery?'checked':''}><i></i>з доставкою</label>
+      <span style="margin-right:auto">Вартість без доставки${CFG.ccat&&CFG.ccat!=='retail'?` · ціни для категорії «${esc((CFG.ccats.find(x=>x.id===CFG.ccat)||{n:''}).n)}»`:''}</span>
       <label class="tgl"><input type="checkbox" id="tPer" ${S.perUnit?'checked':''}><i></i>за екземпляр</label>
       <button class="xls" id="xls" title="Завантажити налаштований прайс Excel">XLS</button></div>
       <div style="text-align:right;margin-top:4px;font-weight:500">${S.perUnit?'За екземпляр':'За наклад'}</div></th></tr>
@@ -278,15 +301,25 @@ function openInfo(t){
   b+=infoText(t);
   modal(b);
 }
+// усі вибрані опції для опису замовлення (і безкоштовні — висота кишені, тип натяжки, напрямок поділу)
+function optList(p){
+  const c=curCat(), o=S.opts, out=p.o.lines.map(l=>l[0]);
+  for(const id of c.opts||[]){ const def=OPT[id]; if(!def||(def.when&&!def.when(o,S))||def.t==='plotlen') continue;
+    if(def.t==='num'){ out.push(`${def.l}: ${o[def.id]??def.def} мм`); continue; }
+    const ch=def.c[o[def.id]??def.def??0]; if(!ch||ch.l==='Ні'||/^Ні\b/.test(ch.l)) continue; const t=def.l+': '+ch.l.toLowerCase(); if(!out.includes(t)) out.push(t); }
+  if(S.cat==='banner'&&OPT.pocket.c[o.pocket||0].sides) out.push(`Висота кишені: ${pocketH()} мм`);
+  const pi=isBigItem()?partsInfo(c):''; if(pi) out.push(`Друк частинами: ${pi}${o.split===1?', уздовж':o.split===2?', упоперек':''}`);
+  return [...new Set(out)];
+}
 function openOrder(key){
   const [mi,qk,li,tid,tir]=key.split('|'); const c=curCat(), m=c.mats[+mi], t=TERMS[c.terms].find(x=>x.id===tid);
   const p=price(c,m,qk,+li,t,+tir); S.picked=key; renderDrawer(); const rd=ready(t);
   const sz=c.kind==='stand'?`${c.vids[S.vid].n}, ${stdList()[S.std][0]} × ${stdList()[S.std][1]} мм`:curSizes().map(s=>`${fmt1(s.w*10)} × ${fmt1(s.h*10)} мм`).join(', ');
-  C.draft={catId:S.cat,cat:c.n+(c.vids&&c.kind!=='stand'?' · '+c.vids[S.vid].n:''),name:m.n+(c.lam&&+li>0?' + ламінація '+c.lam[+li].n.toLowerCase():''),q:plain(Q[qk].n),size:sz,tir:+tir,kits:S.kits,opts:p.o.lines.map(l=>l[0]),term:t.n+(t.s?' '+t.s:''),readyTxt:rd.txt,readyDate:rd.d,x:{mi:+mi,qk,sizes:curSizes().map(z=>({w:z.w*10,h:z.h*10}))},sum:Math.round(p.total*100)/100};
+  C.draft={catId:S.cat,cat:c.n+(c.vids&&c.kind!=='stand'?' · '+c.vids[S.vid].n:''),name:m.n+(c.lam&&+li>0?' + ламінація '+c.lam[+li].n.toLowerCase():''),q:plain(Q[qk].n),size:sz,tir:+tir,kits:S.kits,opts:optList(p),term:t.n+(t.s?' '+t.s:''),readyTxt:rd.txt,readyDate:rd.d,x:{mi:+mi,qk,sizes:curSizes().map(z=>({w:z.w*10,h:z.h*10}))},sum:Math.round(p.total*100)/100};
   modal(`<h3>Оформлення замовлення</h3><dl class="kv">
     <dt>Продукт</dt><dd>${c.n}${c.vids&&c.kind!=='stand'?' · '+c.vids[S.vid].n:''}</dd><dt>Розмір</dt><dd>${sz}</dd>
     <dt>Матеріал</dt><dd>${m.n}${c.lam&&+li>0?' + ламінація '+c.lam[+li].n.toLowerCase():''}</dd><dt>Друк</dt><dd>${plain(Q[qk].n)}</dd>
-    <dt>Опції</dt><dd>${p.o.lines.map(l=>l[0]).join('<br>')||'—'}</dd><dt>Тираж</dt><dd>${tir} шт${S.kits>1?' × '+S.kits+' комплектів':''}</dd>
+    <dt>Опції</dt><dd>${optList(p).join('<br>')||'—'}</dd><dt>Тираж</dt><dd>${tir} шт${S.kits>1?' × '+S.kits+' комплектів':''}</dd>
     <dt>Готовність</dt><dd>${ready(t).txt}</dd><dt>Вартість</dt><dd><b style="font-size:20px">${fmt(p.total)} грн</b> (${fmt(p.per)} грн/шт)</dd></dl>
     <button class="btn pri" data-act="checkout">Далі — оформити замовлення</button>`);
 }
@@ -401,10 +434,7 @@ app.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='stdSel'){ S.std=+t.value; S.sizes=[]; renderSize(); refresh(true); return; }
   if(t.id==='sideTir'){ S.sideTir=Math.max(1,Math.floor(+t.value)||1); renderSide(); return; }
-  if(t.dataset.unit!=null){ // одиниці міняються тільки в цьому рядку; число перераховується, розмір виробу лишається тим самим
-    const i=+t.closest('.own').dataset.i; if(!S.sizes.length) S.sizes=[{w:'',h:''}]; const z=S.sizes[i], was=z.u||S.unit;
-    if(was!==t.value){ const k=t.value==='mm'?10:0.1; if(z.w!=='') z.w=+(z.w*k).toFixed(2); if(z.h!=='') z.h=+(z.h*k).toFixed(2); z.u=t.value; }
-    renderSize(); refresh(); return; }
+  if(t.dataset.on){ S.opts[t.dataset.on]=Math.max(0,+t.value||0); refresh(); return; }
   if(t.dataset.o){ S.opts[t.dataset.o]=+t.value; refresh(true); return; }
   if(t.name==='sm'){ S.standMode=+t.value; refresh(); return; }
   if(t.name==='pl'){ S.plotLen.mode=+t.value; refresh(); return; }
@@ -469,15 +499,15 @@ function setAuth(id){ CID=id||null; AUTH=!!CID; try{ CID?sessionStorage.setItem(
 const normLogin=x=>{ x=String(x).trim().toLowerCase(); const d=x.replace(/\D/g,''); return x.includes('@')?x:d.slice(-10).padStart(10,'0'); };
 const invNo=()=>'СФ-'+(3122+DB.inv.length+INV.length-INV0);
 function pull(){
-  DB=loadDB();
+  DB=loadDB(); setTimeout(renderBehalf,0);
   const c=CID&&DB.clients.find(x=>x.id===CID);
-  ORDERS=[]; MSGS=[]; REPLIES=[]; TX=[]; INV=[]; BON=[]; TICKETS=[]; INV0=0;
-  if(!c){ CID=null; AUTH=false; ME={id:0,name:'',phone:'',email:'',type:'person',company:'',code:'',addr:'',recips:[],notify:{email:true,sms:false,news:false}}; CFG.level=CFG.levels[0].id; return; }
+  ORDERS=[]; MSGS=[]; REPLIES=[]; TX=[]; INV=[]; BON=[]; TICKETS=[]; INV0=0; CFG.ccat='retail';
+  if(!c){ CID=null; AUTH=false; BY=null; ME={id:0,name:'',phone:'',email:'',type:'person',company:'',code:'',addr:'',recips:[],notify:{email:true,sms:false,news:false}}; CFG.level=CFG.levels[0].id; return; }
   ME={id:c.id,name:c.n,phone:c.ph||'',email:c.em||'',type:c.type||'person',company:c.co||'',code:c.code||'',addr:c.addr||'',recips:c.recips||[],notify:c.notify||{email:true,sms:false,news:false}};
-  CFG.level=CFG.levels.some(l=>l.id===c.level)?c.level:CFG.levels[0].id; LCACHE.clear();
+  CFG.level=CFG.levels.some(l=>l.id===c.level)?c.level:CFG.levels[0].id; CFG.ccat=CFG.ccats.some(x=>x.id===c.cat)?c.cat:'retail'; LCACHE.clear();
   const mine=DB.orders.filter(o=>o.c===CID).sort((a,b)=>b.d-a.d);
   ORDERS=mine.map(o=>({id:o.id,d:o.d,cat:o.cat,name:o.name,q:Q[o.qk]?plain(Q[o.qk].n):(o.qTxt||''),size:o.sizeTxt||`${o.w} × ${o.h} мм`,tir:o.tir,kits:o.kits||1,opts:o.opts||[],term:o.term,ready:o.ready,
-    sum:o.sum,paid:o.paid,st:o.st,deliv:{t:o.deliv==='self'?'self':'np',r:o.delivR||0,ttn:o.ttn||''},files:o.files||[],fix:o.fixReason||'',rework:o.rework||0,reworkReq:!!o.reworkReq,title:o.title||'',comment:o.comment||''}));
+    sum:o.sum,dlv:o.dlv||0,credit:o.credit||null,paid:o.paid,st:o.st,deliv:{t:o.deliv==='self'?'self':'np',r:o.delivR||0,ttn:o.ttn||''},files:o.files||[],fix:o.fixReason||'',rework:o.rework||0,reworkReq:!!o.reworkReq,title:o.title||'',comment:o.comment||''}));
   const all=[]; for(const o of mine) for(const m of o.thread||[]) all.push([o.id,m]); for(const m of DB.gen[CID]||[]) all.push([null,m]);
   let mid=0; for(const [,m] of all) if(m.id>mid) mid=m.id;
   for(const [oid,m] of all){ if(m.from==='Клієнт') REPLIES.push({o:oid,d:m.d,t:m.t});
@@ -493,7 +523,8 @@ function push(){
   for(const o of ORDERS){ let r=DB.orders.find(x=>x.id===o.id);
     if(!r){ const x=o._x||{}, C0=CATS[o.cat], z=(x.sizes&&x.sizes[0])||{w:0,h:0}; // нове замовлення з сайту — потрапляє в CRM
       r={id:o.id,c:CID,d:o.d,cat:o.cat,mi:x.mi||0,mat:C0&&C0.mats?C0.mats[x.mi||0]:null,qk:x.qk,w:Math.round(z.w),h:Math.round(z.h),sizes:x.sizes,sizeTxt:o.size,tir:o.tir,kits:o.kits,term:o.term,ready:o.ready,
-        who:null,name:o.name,opts:o.opts,ttn:'',log:[{d:o.d,t:'Замовлення створено клієнтом на сайті'}],thread:[]}; DB.orders.unshift(r); }
+        who:BY||null,name:o.name,opts:o.opts,ttn:'',des:null,rv:'none',dlv:0,credit:null,mach:null,
+        log:[{d:o.d,t:BY?`Замовлення оформив ${(DB.staff.find(x=>x.id===BY)||{n:'менеджер'}).n} від імені клієнта`:'Замовлення створено клієнтом на сайті'}],thread:[]}; DB.orders.unshift(r); }
     const was=r.st;
     Object.assign(r,{st:o.st,sum:o.sum,paid:o.paid,files:o.files,fixReason:o.fix||'',rework:o.rework||0,reworkReq:!!o.reworkReq,title:o.title||'',comment:o.comment||'',deliv:o.deliv.t,delivR:o.deliv.r||0});
     if(was&&was!==o.st) r.log.push({d:new Date(),t:`Клієнт: статус «${STATUS[was].n}» → «${STATUS[o.st].n}»`});
@@ -513,7 +544,7 @@ const C={otab:'active',oq:'',osel:new Set(),mf:'in',mopen:null,msel:new Set(),ft
 const balance=()=>TX.reduce((a,x)=>a+x.s,0);
 const bonus=()=>BON.reduce((a,x)=>a+x.s,0);
 const ordById=id=>ORDERS.find(o=>o.id==id);
-const due=o=>Math.max(0,o.sum+(o.rework||0)-o.paid);
+const due=o=>Math.max(0,o.sum+(o.rework||0)+(o.dlv||0)-o.paid);
 const isPaid=o=>due(o)<.005;
 const badge=st=>`<span class="badge b-${STATUS[st].c}">${STATUS[st].n}</span>`;
 const payBadge=o=>o.st==='cancel'?'<span class="muted">—</span>':isPaid(o)?'<span class="badge b-green">Оплачено</span>':o.paid>0?'<span class="badge b-amber">Частково</span>':'<span class="badge b-gray">Не оплачено</span>';
@@ -562,7 +593,7 @@ function pOrders(){
      <td ${g}>${o.size}<small>${o.tir} шт${o.kits>1?' × '+o.kits+' компл.':''}</small></td>
      <td ${g}>${o.st==='cancel'?'—':dstr(o.ready)}<small>${o.term}</small></td>
      <td ${g}>${badge(o.st)}</td><td ${g}>${payBadge(o)}</td>
-     <td ${g} class="r"><b>${fmt(o.sum+(o.rework||0))}</b>${!isPaid(o)&&o.paid>0?`<small>до сплати ${fmt(due(o))}</small>`:''}</td></tr>`; }).join('')
+     <td ${g} class="r"><b>${fmt(o.sum+(o.rework||0)+(o.dlv||0))}</b>${!isPaid(o)&&o.paid>0?`<small>до сплати ${fmt(due(o))}</small>`:''}</td></tr>`; }).join('')
      ||`<tr><td colspan="8" class="none">Тут поки порожньо</td></tr>`}
    </tbody></table></div></div>`;
 }
@@ -604,8 +635,8 @@ function pOrder(id){
     <div class="card"><div class="card-h"><h2>Вартість</h2></div><table class="sum">
      <tr><td>Друк і опції</td><td>${fmt(o.sum)}</td></tr>
      ${o.rework?`<tr><td>Доопрацювання макета</td><td>${fmt(o.rework)}</td></tr>`:''}
-     <tr><td>Доставка</td><td class="muted">${dl.t==='self'?'безкоштовно':'за тарифами НП'}</td></tr>
-     <tr class="tot"><td>Разом</td><td>${fmt(o.sum+(o.rework||0))} грн</td></tr>
+     <tr><td>Доставка</td><td class="${o.dlv?'':'muted'}">${o.dlv?fmt(o.dlv):dl.t==='self'?'безкоштовно':'додає менеджер'}</td></tr>
+     <tr class="tot"><td>Разом</td><td>${fmt(o.sum+(o.rework||0)+(o.dlv||0))} грн</td></tr>${o.credit&&due(o)>0?`<tr><td colspan="2" style="color:var(--bad);font-size:13px">Оплата до ${dstr(o.credit.date)}</td></tr>`:''}
      <tr><td>Оплачено</td><td>${fmt(o.paid)}</td></tr>
      ${o.st!=='cancel'?`<tr class="due"><td>До сплати</td><td>${fmt(d)} грн</td></tr>`:''}</table></div>
     <div class="card"><div class="card-h"><h2>Доставка</h2></div><dl class="kv2" style="grid-template-columns:100px minmax(0,1fr)">
@@ -824,7 +855,11 @@ function pLogin(){
   const reg=C.atab==='reg';
   app.innerHTML=`<div class="auth"><div class="card" style="padding:28px"><div class="tabs2"><a class="${reg?'':'on'}" data-act="atab" data-v="in">Вхід</a><a class="${reg?'on':''}" data-act="atab" data-v="reg">Реєстрація</a></div>
    ${C.after&&C.after!=='orders'?'<div class="alert info" style="font-size:13px">Увійдіть, щоб продовжити.</div>':''}
-   <div style="display:grid;gap:12px">${reg?`<div><div class="lbl">Ім’я та прізвище</div><input class="inp" id="lgName" autocomplete="name"></div>`:''}
+   ${reg?`<div class="rtype">${[['retail','Звичайна реєстрація'],['agency','Для рекламних агентств'],['opt','Для оптових клієнтів']].map(([k,n])=>`<a class="${(C.rtype||'retail')===k?'on':''}" data-act="rtype" data-v="${k}">${n}</a>`).join('')}</div>
+    ${C.rtype&&C.rtype!=='retail'?`<p class="muted" style="font-size:13px;margin:0 0 12px">${C.rtype==='agency'?'Для рекламних агентств — окремі ціни.':'Для оптових клієнтів — окремі ціни на великі обсяги.'} Після реєстрації менеджер перевірить дані й підтвердить категорію.</p>`:''}`:''}
+   <div style="display:grid;gap:12px">${reg?`<div><div class="lbl">Ім’я та прізвище</div><input class="inp" id="lgName" autocomplete="name"></div>
+    ${C.rtype&&C.rtype!=='retail'?`<div><div class="lbl">Назва компанії</div><input class="inp" id="lgCo" autocomplete="organization"></div><div><div class="lbl">ЄДРПОУ / ІПН</div><input class="inp" id="lgCode" inputmode="numeric"></div>
+     ${C.rtype==='agency'?'<div><div class="lbl">Сайт або портфоліо</div><input class="inp" id="lgSite" placeholder="https://"></div>':'<div><div class="lbl">Орієнтовний обсяг друку на місяць, м²</div><input class="inp" id="lgVol" type="number" min="0"></div>'}`:''}`:''}
     <div><div class="lbl">Телефон або email</div><input class="inp" id="lgLogin" autocomplete="username"></div>
     <div><div class="lbl">Пароль${reg?' (від 6 символів)':''}</div><input class="inp" id="lgPass" type="password" autocomplete="${reg?'new-password':'current-password'}"></div>
     ${reg?`<label class="check" style="font-size:13px"><input type="checkbox" id="lgOffer">Погоджуюсь з <a data-go="page/offer">публічною офертою</a></label>`:''}
@@ -917,6 +952,8 @@ document.addEventListener('click',e=>{
       TICKETS.unshift({id:Math.max(...TICKETS.map(t=>t.id))+1,d:new Date(),subj:$('#tkSubj').value,o:o?+o:null,st:'Нове'});
       addMsg({from:'Підтримка',o:o?+o:null,t:'Звернення отримано. Менеджер відповість тут, у «Листуванні», найближчим часом.'}); rr(); break; }
     case 'atab': C.atab=v; rr(); break;
+    case 'rtype': C.rtype=v; rr(); break;
+    case 'endBehalf': try{ sessionStorage.removeItem('behalf_by'); }catch(e){} push(); BY=null; setAuth(null); location.href='admin.html#clients'; break;
     case 'login': { const l=normLogin($('#lgLogin').value), p=$('#lgPass').value;
       const c=DB.clients.find(x=>x.pass&&x.pass===p&&[x.em,x.ph].some(y=>y&&normLogin(y)===l));
       if(!c){ $('#lgErr').textContent='Невірний логін або пароль'; return; }
@@ -927,7 +964,12 @@ document.addEventListener('click',e=>{
       if(!$('#lgOffer').checked){ $('#lgErr').textContent='Потрібна згода з офертою'; return; }
       if(DB.clients.some(x=>[x.em,x.ph].some(y=>y&&normLogin(y)===normLogin(l)))){ $('#lgErr').textContent='Такий телефон або email уже зареєстровано'; return; }
       const nid=Math.max(10000,...DB.clients.map(x=>x.id))+1;
-      DB.clients.push({id:nid,n,ph:l.includes('@')?'':l,em:l.includes('@')?l:'',pass:p,type:'person',co:'',level:CFG.levels[0].id,since:new Date(),recips:[]}); saveDB(DB,false); setAuth(nid); const to=C.after||'orders'; C.after=null; go(to); break; }
+      const rt=C.rtype||'retail', co=rt!=='retail'?($('#lgCo').value||'').trim():'';
+      if(rt!=='retail'&&!co){ $('#lgErr').textContent='Вкажіть назву компанії'; return; }
+      const info=rt==='agency'?`Сайт / портфоліо: ${($('#lgSite').value||'—').trim()}`:rt==='opt'?`Обсяг на місяць: ${($('#lgVol').value||'—')} м²`:'';
+      DB.clients.push({id:nid,n,ph:l.includes('@')?'':l,em:l.includes('@')?l:'',pass:p,type:rt==='retail'?'person':'company',co,edrpou:rt!=='retail'?($('#lgCode').value||'').trim():'',
+        cat:'retail',...(rt!=='retail'?{catReq:rt,reqInfo:info}:{}),level:CFG.levels[0].id,since:new Date(),recips:[]}); saveDB(DB,false); setAuth(nid); const to=C.after||'orders'; C.after=null; go(to);
+      if(rt!=='retail') toast('Заявку на категорію надіслано менеджеру. Після підтвердження ціни в калькуляторі зміняться.'); break; }
     case 'logout': push(); setAuth(null); C.after=null; go('login'); break;
     case 'checkout': closeModal(); go('checkout'); break;
   }
@@ -951,6 +993,21 @@ document.addEventListener('input',e=>{
 // зберігаємо після кожної дії; зміни з адмінки (інша вкладка) підхоплюємо одразу
 for(const ev of ['click','change','input']) document.addEventListener(ev,()=>setTimeout(push,0));
 window.addEventListener('storage',e=>{ if(e.key===DB_KEY){ pull(); if(C.page&&PAGES[C.page]) rr(); else if(S.cat&&curCat().kind!=='form'){ renderFilter(); renderPrice(); } } });
+let BY=null;
+// оформлення від імені клієнта: менеджер відкриває сайт з картки клієнта в CRM (?as=№клієнта&by=№співробітника).
+// У тестовій версії перевірка в браузері; у робочій — сесія співробітника на сервері.
+(()=>{ const q=new URLSearchParams(location.search), as=+q.get('as'), by=+q.get('by');
+  if(as&&by){ const db=loadDB(), c=db.clients.find(x=>x.id===as), st=db.staff.find(x=>x.id===by);
+    if(c&&st){ BY=by; CID=as; AUTH=true; try{ sessionStorage.setItem('client_id',as); sessionStorage.setItem('behalf_by',by); }catch(e){} }
+    try{ history.replaceState(null,'',location.pathname+location.hash); }catch(e){} }
+  else if(CID){ try{ BY=+sessionStorage.getItem('behalf_by')||null; }catch(e){} } })();
+function renderBehalf(){
+  let bar=document.getElementById('behalfBar');
+  if(!BY||!AUTH){ if(bar) bar.remove(); return; }
+  if(!bar){ bar=document.createElement('div'); bar.id='behalfBar'; bar.className='behalf'; document.querySelector('header').after(bar); }
+  const st=DB.staff.find(x=>x.id===BY), debt=DB.orders.filter(o=>o.c===CID&&o.st!=='cancel'&&o.credit&&(o.sum+(o.rework||0)+(o.dlv||0)-o.paid)>0.005);
+  bar.innerHTML=`<div class="wrap"><span>Оформлення від імені клієнта <b>${esc(ME.name)}</b> · №${ME.id} · ціни категорії «${esc((CFG.ccats.find(x=>x.id===CFG.ccat)||{n:''}).n)}»${debt.length?` · <b class="debt">борг ${fmt(debt.reduce((a,o)=>a+o.sum+(o.rework||0)+(o.dlv||0)-o.paid,0))} грн</b>`:''}</span><span>Менеджер: ${esc(st?st.n:'—')} <button class="btn sm" data-act="endBehalf">Завершити</button></span></div>`;
+}
 pull(); route();
 </script>
 </body>

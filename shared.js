@@ -14,6 +14,16 @@ const CFG = {
   markup:0.30,      // націнка на відхід, якщо в матеріалу не задано ціну відходу
   leftoverMin:30,   // смуга листа від цього розміру — діловий залишок, см
   level:'retail',
+  // категорії клієнтів: окремі ціни (коефіцієнт до прайсу). Призначає менеджер у картці клієнта
+  ccats:[{id:'retail',n:'Звичайні клієнти',k:1},{id:'agency',n:'Рекламні агентства',k:0.85},{id:'opt',n:'Оптові клієнти',k:0.8}],
+  ccat:'retail',
+  // друкарські машини — колонки виробничої дошки
+  machines:[{id:'m1',n:'Сольвент 3200'},{id:'m2',n:'Екосольвент 1600'},{id:'m3',n:'УФ 1600'}],
+  // нагадування про оплату для друку без оплати
+  remind:{on:true,every:1,onDay:true,overdue:true},
+  // максимальна ширина друку, мм (поверх ширини рулону): більше — ділимо на частини
+  printMax:{eco:1600,eco2:1600,uv:1600,uvw:1600,uvwc:1600},
+  overlap:20,       // нахльост при поділі на частини, мм
   levels:[{id:'retail',name:'Базовий',d:0},{id:'regular',name:'Постійний',d:0},{id:'partner',name:'Партнер',d:0},{id:'agency',name:'Агенція',d:0}],
   volume:[{q:1,d:0}],  // знижка від тиражу
   tirageList:[1,2,3,4,5,10,15,20,25,30,40,50,75,100,150,200,250,300,500,1000],
@@ -26,7 +36,7 @@ const Q = {
   q720:{n:'720 dpi',t:"СТАНДАРТ (екстер'єр)\nЗвичайна якість: сітілайт, вивіска"},
   q1440:{n:'1440 dpi',t:"ПРЕМІУМ (екстер'єр, інтер'єр)\nЗвичайна якість: плакат, наліпка"},
   photo:{n:'1440 Фото',t:"ФОТО друк (екстер'єр, інтер'єр)\nФотографічна якість відбитку"},
-  uv:{n:'УФ друк<br>до 1,6 м',t:"УФ друк, ширина до 1,6 м\nСтійкий до стирання й вицвітання"},
+  uv:{n:'УФ друк<br>до 1600 мм',t:"УФ друк, ширина до 1600 мм\nСтійкий до стирання й вицвітання"},
   uvgl:{n:'1440 УФ CMYK<br>+ ГЛ лак',t:'УФ друк + Глянцевий лак'},
   uvmat:{n:'1440 УФ CMYK<br>+ МАТ лак',t:'УФ друк + Матовий лак'},
   uvcw:{n:'1440 УФ CMYK<br>+ WHITE',t:'УФ друк в 2-а шари CMYK + WHITE'},
@@ -58,16 +68,18 @@ const OPT = {
   eyelStep:{id:'eyelStep',l:'Крок між люверсами',t:'select',sub:1,def:4,when:o=>o.eyel>0&&o.eyel!==3&&o.eyel!==4,
     c:[100,150,200,250,300,350,400,450,500].map(v=>({l:v+' мм'+(v===300?' — стандарт':''),step:v/10}))},
   hem:{id:'hem',l:'Пропайка швів (підворот)',t:'select',c:[{l:'Ні'},{l:'По периметру',p:80,per:'perim'}]},
-  pocket:{id:'pocket',l:'Кишеня під трубу (100мм)',t:'select',c:[{l:'Ні'},
+  pocket:{id:'pocket',l:'Кишеня під трубу',t:'select',c:[{l:'Ні'},
     ...[['Тільки зверху','t'],['Тільки знизу','b'],['Тільки зліва','l'],['Тільки справа','r'],['Зверху та знизу','tb'],['Зліва та справа','lr']].map(([l,s])=>({l,p:30,per:'pocket',sides:s}))]},
+  pocketH:{id:'pocketH',l:'Висота кишені',t:'chips',sub:1,def:1,when:o=>o.pocket>0,note:'Припуск на кишеню додається до техрозміру',c:[{l:'50 мм',h:50},{l:'100 мм',h:100},{l:'150 мм',h:150},{l:'Своя висота'}]},
+  pocketHc:{id:'pocketHc',l:'Своя висота кишені, мм',t:'num',sub:1,def:120,when:o=>o.pocket>0&&o.pocketH===3},
   backing:{id:'backing',l:'Підкладка',t:'select',c:[{l:'Ні'},{l:'Так',p:40,per:'area'}]},
 
-  filmCut:{id:'cut',l:'Порізка в розмір',t:'chips',c:[{l:'Ні'},{l:'Ручна порізка',p:8,per:'perim'}]},
-  plot:{id:'plot',l:'Висічка (плотерна порізка)',t:'chips',c:[{l:'Ні'},{l:'Так'}]},
-  plotLen:{id:'plotLen',l:'Довжина лінії різання',t:'plotlen',sub:1,when:o=>o.plot===1},
-  plotCx:{id:'plotCx',l:'Плівка для висічки',t:'chips',sub:1,when:o=>o.plot===1,c:[{l:'Без ламінації',pm:5},{l:'З ламінацією',pm:10}]},
-  pick:{id:'pick',l:'Вибірка з плівки',t:'chips',sub:1,when:o=>o.plot===1,c:[{l:'Ні'},{l:'Проста',p:300,per:'area'},{l:'Складна',p:400,per:'area'}]},
-  mount:{id:'mount',l:'Монтажна плівка на висічку',t:'chips',sub:1,when:o=>o.plot===1,c:[{l:'Ні'},{l:'Так',p:150,per:'area'}]},
+  filmCut:{id:'cut',l:'Порізка',t:'chips',c:[{l:'Ні'},{l:'Ручна (тільки прямокутні вироби)',p:8,per:'perim'},{l:'Плотерна проста',pm:5},{l:'Плотерна складна',pm:10}],
+    note:'Ручна — по прямих лініях. Фігурні контури, наліпки — плотерна'},
+  plotLen:{id:'plotLen',l:'Довжина лінії різання',t:'plotlen',sub:1,when:o=>o.cut>=2},
+  pick:{id:'pick',l:'Каплівка (вибірка зайвої плівки)',t:'chips',sub:1,when:o=>o.cut>=2,c:[{l:'Ні'},{l:'Проста',p:300,per:'area'},{l:'Складна',p:400,per:'area'}]},
+  mount:{id:'mount',l:'Прикатка на транспортну плівку',t:'chips',sub:1,when:o=>o.cut>=2,c:[{l:'Ні'},{l:'Так',p:150,per:'area'}]},
+  lamF:{id:'lamF',l:'Ламінація',t:'chips',c:[{l:'Ні'},{l:'Глянцева',p:120,per:'area'},{l:'Матова',p:120,per:'area'}]},
   nakat:{id:'nakat',l:'Накатка плівки на ПВХ / композит',t:'chips',c:[{l:'Ні'},{l:'Так',p:120,per:'area'}]},
   paperCut:{id:'cut',l:'Порізка в розмір',t:'chips',c:[{l:'Ні'},{l:'Ручна порізка',p:8,per:'perim'}]},
 
@@ -84,6 +96,7 @@ const OPT = {
 
   frame:{id:'frame',l:'Рама',t:'select',when:(o,s)=>s.vid===0,c:[{l:'Рама дерев’яна для картин',p:60,per:'perim'}]},
   stretch:{id:'stretch',l:'Натяжка',t:'chips',when:(o,s)=>s.vid===0,c:[{l:'Натяжка холста на раму',p:150,per:'area'}]},
+  wrap:{id:'wrap',l:'Тип натяжки (обов’язково)',t:'chips',sub:1,when:(o,s)=>s.vid===0,note:'Припуск 40 мм з кожного боку на торець і загин',c:[{l:'Галерейна — задруківка торців',p:40,per:'perim',add:40,print:1},{l:'Проста — білі поля на торцях',add:40}]},
   hang:{id:'hang',l:'Кріплення',t:'chips',when:(o,s)=>s.vid===0,c:[{l:'Ні'},{l:'Крокодил'},{l:'Підвіси',p:13.2,per:'piece'}]},
   canvasCut:{id:'cut',l:'Порізка',t:'select',when:(o,s)=>s.vid===1,c:[{l:'Ні'},{l:'Ручна порізка в розмір',p:8,per:'perim'}]},
 };
@@ -114,21 +127,19 @@ const CATS = {
       {n:'Банер литий 510 г (Back Lit)',t:'Банер литий 510 г/м², Back Lit',rolls:[110, 127, 137, 160, 220, 250, 320],waste:0,cost:0,pr:{},na:1},
       {n:'Банерна сітка Mesh',t:'Банерна сітка Mesh',rolls:[220,250,320],waste:107.5,cost:107.5,pr:{sol:185}},
     ],
-    opts:['bannerCut','eyel','eyelType','eyelDia','eyelStep','hem']},
+    opts:['bannerCut','eyel','eyelType','eyelDia','eyelStep','hem','pocket','pocketH','pocketHc']},
   film:{n:'Плівка',d:'Наліпки, плівка для обклеювання вітрин, вивісок, авто…',kind:'roll',ico:'film',terms:'std',big:'parts',
     std:[[210,297,'А4'],[297,420,'А3'],[420,594,'А2'],[594,841,'А1'],[841,1189,'А0'],[1200,1800,'Сіті формат']],
     q:['sol','eco','uv','uvw','uvwc'],
     mats:[
       {n:'Плівка біла мат/глянець (Orajet 3640)',t:'Плівка біла матова / глянцева, Orajet 3640',rolls:[105,126,137,160],waste:100,cost:100,pr:{sol:180,eco:200,uv:360}},
-      {n:'Плівка біла з ламінацією (Orajet 3640)',t:'Плівка біла матова / глянцева з ламінацією, Orajet 3640',rolls:[105,126,137,160],waste:200,cost:200,pr:{sol:300,eco:320}},
       {n:'Плівка прозора мат/глянець (Orajet 3640)',t:'Плівка прозора матова / глянцева, Orajet 3640',rolls:[105,126,137,160],waste:100,cost:100,pr:{sol:180,eco:200,uv:360,uvw:500,uvwc:650}},
-      {n:'Плівка прозора з ламінацією (Orajet 3640)',t:'Плівка прозора матова / глянцева з ламінацією, Orajet 3640',rolls:[105,126,137,160],waste:200,cost:200,pr:{sol:300,eco:320}},
       {n:'Плівка Блекаут (Orajet 3641)',t:'Плівка Блекаут біла глянець, сірий клей, Orajet 3641',rolls:[105,126,137,160],waste:115,cost:115,pr:{sol:200,eco:220}},
-      {n:'Плівка Блекаут з ламінацією (Orajet 3641)',t:'Плівка Блекаут біла глянець з ламінацією, сірий клей, Orajet 3641',rolls:[105,126,137,160],waste:220,cost:220,pr:{sol:320,eco:340}},
+      {n:'Автоплівка (литий вініл)',t:'Автоплівка литого типу для обклеювання авто, кривих поверхонь',rolls:[137,152],waste:250,cost:250,pr:{sol:380,eco:420}},
       {n:'Плівка перфорована (One Way Vision)',t:'Плівка перфорована One Way Vision',rolls:[106,127,152],waste:140,cost:140,pr:{sol:210,eco:230}},
       {n:'Плівка кольорова для висічки (Orajet 641)',t:'Плівка Orajet 641 кольорова для висічки',rolls:[100],waste:300,cost:300,pr:{sol:400,eco:400}},
     ],
-    opts:['filmCut','plot','plotLen','plotCx','pick','mount','nakat']},
+    opts:['lamF','filmCut','plotLen','pick','mount','nakat']},
   paper:{n:'Папір',d:'Афіші, плакати, постери довільного розміру — ціна за м²',kind:'roll',ico:'paper',terms:'std',big:'parts',
     std:[[210,297,'А4'],[297,420,'А3'],[420,594,'А2'],[594,841,'А1'],[841,1189,'А0'],[1200,1800,'Сіті формат'],[6000,3000,'Бігборд']],
     q:['sol','eco'],
@@ -170,7 +181,7 @@ const CATS = {
     std:[[300,200],[300,300],[400,300],[600,400],[700,500],[900,600],[1100,800],[1000,1000]],
     q:['eco','eco2'],
     mats:[{n:'Холст напівсинтетика',t:'Холст напівсинтетичний',rolls:[61,107,127],waste:0,cost:0,pr:{eco:350,eco2:450}}],
-    opts:['frame','stretch','canvasCut']},
+    opts:['frame','stretch','wrap','canvasCut']},
   stands:{hidden:1,n:'Мобільні стенди',d:'X-banner, L-banner, Roll-up, Press-wall…',kind:'stand',ico:'stand',terms:'short',
     vids:[
       {n:'X-banner',ico:'x',sizes:[[600,1600,581.87],[600,1600,1052.97,'посилений'],[800,1800,1204.28],[1200,2000,2408.58]]},
@@ -243,14 +254,16 @@ const plain = s => s.replace(/<br>/g,' ');
 const marginFor = (cat,mat) => mat&&mat.margin!=null ? mat.margin : (cat.kind==='sheet' ? CFG.marginSheet : CFG.marginRoll);
 
 // Розбивка на частини, якщо виріб не влазить у найширший рулон / лист
-function splitItems(sizes, cat, mat, m){
-  const ov = cat.big==='weld' ? 4 : 1;
+function splitItems(sizes, cat, mat, m, dir=0){
+  const ov = cat.big==='weld' ? 4 : (CFG.overlap??20)/10; // спайка банера 40 мм, нахльост частин — з налаштувань
   const A = (mat.rolls?Math.max(...mat.rolls):Math.max(...mat.sheet)) - 2*m;
   const B = mat.rolls ? Infinity : Math.min(...mat.sheet) - 2*m;
   const need=(len,lim)=> len<=lim ? 1 : (lim<=ov ? Infinity : Math.ceil((len-ov)/(lim-ov)));
   return sizes.map(s=>{
     let best=null;
-    for (const [p,q] of [[s.w,s.h],[s.h,s.w]]){ const c=need(p,A), k=need(q,B); if(!best||c*k<best.n) best={p,q,c,k,n:c*k}; }
+    const ors=dir===1?[[s.w,s.h]]:dir===2?[[s.h,s.w]]:[[s.w,s.h],[s.h,s.w]];
+    for (const [p,q] of ors){ const c=need(p,A), k=need(q,B); if(!best||c*k<best.n) best={p,q,c,k,n:c*k}; }
+    if(!isFinite(best.n)&&dir) return splitItems([s],cat,mat,m,0)[0];
     if(!isFinite(best.n)) return {err:true};
     const {p,q,c,k,n}=best;
     return {...s, parts:n, pw:p/c+(c>1?ov:0), ph:q/k+(k>1?ov:0), seam:(c-1)*q+(k-1)*p};
@@ -280,19 +293,21 @@ function packSheets(items,SW,SH,pol){
 }
 
 const LCACHE=new Map();
-function layout(cat, mat, sizes, mult){
-  const m=marginFor(cat,mat);
+// mode.nest — розкладати поруч (поворот, кілька в ряд); mode.nm — «без полів»: вироби стик у стик, поле тільки по контуру групи
+function layout(cat, mat, sizes, mult, mode={}){
+  const m=marginFor(cat,mat), nest=mode.nest??CFG.nest, nm=!!mode.nm&&nest;
   const add=cat.lenAdd??CFG.lenAdd??0;
-  const key=[mat.n,m,CFG.leftoverMin,CFG.nest,add,mult,sizes.map(s=>s.w+'x'+s.h).join(',')].join('|');
+  const dir=mode.dir||0;
+  const key=[mat.n,(mat.rolls||mat.sheet).join('/'),dir,CFG.overlap,m,CFG.leftoverMin,nest,nm,add,mult,sizes.map(s=>s.w+'x'+s.h).join(',')].join('|');
   if(LCACHE.has(key)) return LCACHE.get(key);
-  const sp=splitItems(sizes,cat,mat,m);
+  const sp=splitItems(sizes,cat,mat,m,dir);
   if(sp.some(s=>s.err)) return null;
   let printArea=0, seam=0, nTotal=0; const items=[];
   for(const s of sp){ const n=mult*s.parts; nTotal+=n; printArea+=n*s.pw*s.ph/1e4; seam+=s.seam*mult;
-    items.push({fw:s.pw+2*m,fh:s.ph+2*m,n}); }
+    items.push({fw:s.pw+(nm?0:2*m),fh:s.ph+(nm?0:2*m),n}); }
   const uniform = items.length===1;
   let best=null;
-  if(mat.rolls&&!CFG.nest){
+  if(mat.rolls&&!nest){
     // як у робочій таблиці: виріб займає всю ширину рулону, довжина = сторона виробу + запас
     for(const W of mat.rolls){ let L=0, ok=true; const rects=[];
       for(const sz of sp){ const o=[[sz.pw,sz.ph],[sz.ph,sz.pw]].filter(([a])=>a<=W-2*m+1e-9).sort((x,y)=>x[1]-y[1])[0]; if(!o){ ok=false; break; }
@@ -300,14 +315,14 @@ function layout(cat, mat, sizes, mult){
         L+=n*(o[1]+add); }
       if(!ok) continue; const used=W*L/1e4; if(!best||used<best.used-1e-9) best={kind:'roll',W,L,used,rects}; }
   } else if(mat.rolls){
-    for(const W of mat.rolls){
-      let L=null, rects=null;
+    for(const W0 of mat.rolls){
+      const W=nm?W0-2*m:W0; let L=null, rects=null;
       if(uniform){ const it=items[0];
         for(const [w,h] of [[it.fw,it.fh],[it.fh,it.fw]]){ if(w>W+1e-9) continue; const ac=Math.floor(W/w+1e-9), l=Math.ceil(it.n/ac)*h; if(L==null||l<L){L=l;rects={grid:{w,h,ac},n:it.n};} }
         if(L==null) continue;
       } else { if(nTotal>2500) return null; const flat=items.flatMap(it=>Array(it.n).fill(it));
         for(const pol of POLS){ const r=packStrip(flat,W,pol); if(r&&(L==null||r.L<L)){L=r.L;rects=r.rects;} } if(L==null) continue; }
-      const used=W*L/1e4; if(!best||used<best.used-1e-9) best={kind:'roll',W,L,used,rects};
+      if(nm) L+=2*m; const used=W0*L/1e4; if(!best||used<best.used-1e-9) best={kind:'roll',W:W0,L,used,rects,off:nm?m:0};
     }
   } else {
     const [a,b]=mat.sheet;
@@ -327,7 +342,7 @@ function layout(cat, mat, sizes, mult){
     }
   }
   if(!best) return null;
-  const res={...best,printArea,seam,m};
+  const res={...best,printArea,seam,m:nm?0:m,nm};
   LCACHE.set(key,res); if(LCACHE.size>5000) LCACHE.clear();
   return res;
 }
@@ -343,7 +358,7 @@ function eyeletCount(s,pos,step){
 function optionsCost(cat,sizes,mult,mat){
   let cost=0,k=1; const lines=[]; const o=S.opts;
   for(const id of cat.opts){
-    const def=OPT[id]; if(def.when&&!def.when(o,S)) continue; if(def.t==='plotlen') continue;
+    const def=OPT[id]; if(def.when&&!def.when(o,S)) continue; if(def.t==='plotlen'||def.t==='num') continue;
     const ch=def.c[o[def.id]??def.def??0]; if(!ch) continue;
     if(ch.k) k*=ch.k;
     let c=0;
@@ -355,10 +370,10 @@ function optionsCost(cat,sizes,mult,mat){
         case 'perim': c+=ch.p*per*mult; break;
         case 'perimCm': c+=ch.p*per*100*mult; break;
         case 'perimTh': { const pc=CFG.pvhCut||{base:1.98,perMm:0.66}; c+=(pc.base+((mat.th||1)-1)*pc.perMm)*(ch.x||1)*per*mult; break; }
-        case 'pocket': c+=ch.p*[...ch.sides].reduce((t,sd)=>t+((sd==='t'||sd==='b')?s.w:s.h),0)/100*mult; break;
+        case 'pocket': c+=ch.p*pocketH()/100*[...ch.sides].reduce((t,sd)=>t+((sd==='t'||sd==='b')?s.w:s.h),0)/100*mult; break;
       }
       if(def.id==='eyel'&&ch.pos){ const ep=OPT.eyelDia.c[o.eyelDia||0].ep, st=OPT.eyelStep.c[o.eyelStep??4].step; c+=eyeletCount(s,ch.pos,st)*ep*mult; }
-      if(def.id==='plot'&&o.plot===1){ const pm=OPT.plotCx.c[o.plotCx||0].pm; const L=S.plotLen.mode===0?S.plotLen.len/1000:S.plotLen.mode===1?per*S.plotLen.obj*0.6:per; c+=Math.max(L,0.3)*pm*mult; }
+      if(ch.pm&&def.id==='cut'){ const pm=ch.pm*(o.lamF>0?1.5:1); const L=S.plotLen.mode===0?S.plotLen.len/1000:S.plotLen.mode===1?per*S.plotLen.obj*0.6:per; c+=Math.max(L,0.3)*pm*mult; }
       if(def.id==='holePos') c+=ch.holes*(ch.hp??4)*mult;
     }
     if(ch.min&&c>0&&c<ch.min) c=ch.min;
@@ -367,12 +382,26 @@ function optionsCost(cat,sizes,mult,mat){
   return {cost,k,lines};
 }
 const volumeD=q=>{ let d=0; for(const t of CFG.volume) if(q>=t.q) d=t.d; return d; };
-const isBigItem=()=>{ const c=curCat(); if(c.kind!=='roll') return false; const maxW=Math.max(...c.mats.flatMap(x=>x.rolls))-2*marginFor(c); return curSizes().some(s=>Math.min(s.w,s.h)>maxW); };
+// ширина друку обмежена для екосольвенту / УФ (CFG.printMax, мм): беремо тільки рулони, що влазять у машину
+function printMat(mat,qk){ const mx=CFG.printMax&&CFG.printMax[qk]; if(!mx||!mat.rolls) return mat; const r=mat.rolls.filter(W=>W*10<=mx+1e-9); return r.length&&r.length<mat.rolls.length?{...mat,rolls:r}:mat; }
+const printLimit=c=>{ const m=marginFor(c), qs=S.f&&S.f.q.size?c.q.filter(q=>S.f.q.has(q)):c.q; return Math.min(...(qs.length?qs:c.q).map(q=>{ const mats=c.mats.filter(x=>!x.na&&x.pr[q]!=null&&x.rolls); return mats.length?Math.max(...mats.map(x=>Math.max(...printMat(x,q).rolls)))-2*m:Infinity; })); };
+const isBigItem=()=>{ const c=curCat(); if(c.kind!=='roll'||!c.mats.some(x=>x.rolls)) return false; const lim=printLimit(c); return techSizes(curSizes()).some(s=>Math.min(s.w,s.h)>lim+1e-9); };
+// висота кишені, мм
+const pocketH=()=>{ const v=OPT.pocketH.c[S.opts.pocketH??1]; return v&&v.h?v.h:Math.max(20,+S.opts.pocketHc||120); };
+// техрозмір: виріб + припуски (кишені банера, загин холста на раму), см
+function techSizes(sizes){
+  const o=S.opts;
+  if(S.cat==='banner'){ const pc=OPT.pocket.c[o.pocket||0]; if(pc&&pc.sides){ const H=(pocketH()+30)/10; // кишеня + шов 30 мм
+    return sizes.map(s=>{ let w=s.w,h=s.h; for(const sd of pc.sides){ if(sd==='t'||sd==='b') h+=H; else w+=H; } return {w,h}; }); } }
+  if(S.cat==='canvas'&&S.vid===0){ const g=OPT.wrap.c[o.wrap||0]; if(g&&g.add){ const a=g.add/10; return sizes.map(s=>({w:s.w+2*a,h:s.h+2*a})); } }
+  return sizes;
+}
 
 /* ціна однієї клітинки прайсу */
 function price(cat,mat,qk,lamI,term,tirage){
   const sizes=curSizes(); if(!sizes.length) return null;
   const pr=mat.pr[qk]; if(pr==null) return null;
+  mat=printMat(mat,qk); const tz=techSizes(sizes), md={dir:S.opts.split||0};
   const wp=m=>m.waste??m.cost*(1+CFG.markup); // ціна відходу, грн/м²
   const mult=tirage*S.kits;
   const o=optionsCost(cat,sizes,mult,mat);
@@ -382,21 +411,22 @@ function price(cat,mat,qk,lamI,term,tirage){
     base=fp*mult+o.cost; info={L:null,printCost:fp*mult,waste:0,wasteCost:0,fixed:true};
   } else if(cat.kind==='stand'){
     const st=cat.vids[S.vid].sizes[S.std], cons=st[2]*mult;
-    const L = S.standMode===2 ? null : layout(CATS.banner,mat,sizes,mult);
+    const L = S.standMode===2 ? null : layout(CATS.banner,mat,tz,mult,md);
     const prn = L ? L.printArea*pr+(L.used-L.printArea)*wp(mat) : 0;
     base=(S.standMode!==1?cons:0)+prn; info={L,cons,prn};
   } else {
-    const L=layout(cat,mat,sizes,mult); if(!L) return null;
+    const L=layout(cat,mat,tz,mult,md); if(!L) return null;
     const lam=cat.lam?cat.lam[lamI].p:0;
     const printCost=L.printArea*(pr*o.k+lam);
     const waste=Math.max(0,L.used-L.printArea), wasteCost=waste*wp(mat);
     const seamCost=(cat.big==='weld'&&(S.opts.big||0)===0)?L.seam/100*(CFG.seam??80):0;
     base=printCost+wasteCost+o.cost+seamCost; info={L,printCost,waste,wasteCost,seamCost,lam};
   }
-  const afterTerm=base*term.k, vd=volumeD(tirage), lv=CFG.levels.find(l=>l.id===CFG.level).d;
-  const deliv=S.delivery?80+18*((info.L&&info.L.printArea)||1):0;
-  const total=afterTerm*(1-vd)*(1-lv)+deliv;
-  return {total,per:total/mult,base,afterTerm,vd,lv,o,info,deliv,mult};
+  const afterTerm=base*term.k, vd=volumeD(tirage), lv=(CFG.levels.find(l=>l.id===CFG.level)||{d:0}).d;
+  const cc=(CFG.ccats||[]).find(x=>x.id===CFG.ccat)||{k:1}; // ціни категорії клієнта
+  const deliv=0; // доставку новим клієнтам не нараховуємо; менеджер додає її окремою статтею в замовленні
+  const total=afterTerm*(1-vd)*(1-lv)*cc.k+deliv;
+  return {total,per:total/mult,base,afterTerm,vd,lv,cc,o,info,deliv,mult};
 }
 
 /* =====================================================================
@@ -417,10 +447,10 @@ function ready(term,extraDays=0){
 const curCat=()=>CATS[S.cat];
 const hasOwnSize=()=>S.sizes.some(s=>+s.w>0&&+s.h>0);
 const stdList=()=>{ const c=curCat(); return c.kind==='stand'?c.vids[S.vid].sizes:c.std; };
-function curSizes(){ // см
-  const c=curCat(); const k=S.unit==='mm'?0.1:1;
+function curSizes(){ // см; на сайті всі розміри вводяться в мм
+  const c=curCat();
   if(c.kind==='stand'){ const s=c.vids[S.vid].sizes[S.std]; return [{w:s[0]/10,h:s[1]/10}]; }
-  const own=S.sizes.filter(s=>+s.w>0&&+s.h>0).map(s=>{ const k=(s.u||S.unit)==='mm'?0.1:1; return {w:+s.w*k,h:+s.h*k}; }); // у кожного розміру свої одиниці
+  const own=S.sizes.filter(s=>+s.w>0&&+s.h>0).map(s=>({w:+s.w/10,h:+s.h/10}));
   if(own.length) return own;
   const s=c.std[S.std]; return s?[{w:s[0]/10,h:s[1]/10}]:[];
 }
@@ -432,12 +462,13 @@ function drawLayout(L){
   const fromGrid=(g,n,cap,sheetIdx)=>{ const out=[]; for(let i=0;i<Math.min(n,cap);i++){ const s=g.per?Math.floor(i/g.per):0; if(sheetIdx!=null&&s!==sheetIdx) continue; const j=g.per?i%g.per:i; out.push({x:(j%g.ac)*g.w,y:Math.floor(j/g.ac)*g.h,w:g.w,h:g.h}); } return out; };
   const one=(len,wid,rects,title,cut)=>{ const s=Math.min(1.6,180/wid,500/Math.max(len,1)), W=Math.max(len*s,30), H=wid*s;
     let g=`<rect width="${W}" height="${H}" fill="var(--waste)" stroke="var(--waste-line)"/>`;
-    for(const r of rects){ const x=r.y*s,y=r.x*s,w=r.h*s,h=r.w*s,ms=m*s;
+    const off=L.off||0;
+    for(const r of rects){ const x=(r.y+off)*s,y=(r.x+off)*s,w=r.h*s,h=r.w*s,ms=m*s;
       if(r.ia!=null) g+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="var(--waste-line)"/><rect x="${x+(w-r.ib*s)/2}" y="${y+(h-r.ia*s)/2}" width="${r.ib*s}" height="${r.ia*s}" fill="var(--print)"/>`;
       else g+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="var(--margin)" stroke="var(--card)"/><rect x="${x+ms}" y="${y+ms}" width="${Math.max(0,w-2*ms)}" height="${Math.max(0,h-2*ms)}" fill="var(--print)"/>`; }
     if(cut!=null) g+=`<line x1="${cut*s}" x2="${cut*s}" y1="-3" y2="${H+3}" stroke="var(--bad)" stroke-dasharray="4 3"/>`;
     return `<svg width="${W+4}" height="${H+18}" viewBox="-2 -14 ${W+4} ${H+18}" style="display:block;margin-bottom:8px"><text y="-4" font-size="10" fill="var(--muted)">${title}</text>${g}</svg>`; };
-  if(L.kind==='roll') return one(L.L,L.W,L.rects.grid?fromGrid(L.rects.grid,L.rects.n,800):L.rects,`рулон ${L.W} см · довжина ${fmt1(L.L/100)} м →`);
+  if(L.kind==='roll') return one(L.L,L.W,L.rects.grid?fromGrid(L.rects.grid,L.rects.n,800):L.rects,`рулон ${L.W*10} мм · довжина ${fmt1(L.L/100)} м →`);
   let out='';
   for(let i=0;i<Math.min(L.n,4);i++) out+=one(L.SH,L.SW,L.rects.grid?fromGrid(L.rects.grid,L.rects.n,4000,i):L.rects.filter(r=>r.s===i),`лист ${i+1}`,i===L.n-1&&L.lastCounted<L.SH?L.lastH:null);
   return out+(L.n>4?`<div style="font-size:12px;color:var(--muted)">+ ще ${L.n-4} листів</div>`:'');
@@ -456,29 +487,31 @@ const DB_KEY='druk_db_v1';
 const RE_DATE=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
 
 // каталог: усе, що редагується в налаштуваннях
-function collectCatalog(){ return {CATS,ORDER,OPT,CFG:{...CFG,level:undefined},Q,TERMS}; }
+function collectCatalog(){ return {CATS,ORDER,OPT,CFG:{...CFG,level:undefined,ccat:undefined},Q,TERMS}; }
 function applyCatalog(c){
   if(!c) return;
   const sync=(dst,src)=>{ for(const k of Object.keys(dst)) if(!(k in src)) delete dst[k]; Object.assign(dst,src); };
   const when={}; for(const k in OPT) if(OPT[k].when) when[k]=OPT[k].when; // умови показу опцій — у коді
   sync(CATS,c.CATS); sync(OPT,c.OPT); for(const k in when) if(OPT[k]) OPT[k].when=when[k];
-  const lvl=CFG.level; sync(CFG,c.CFG); CFG.level=lvl; sync(Q,c.Q); sync(TERMS,c.TERMS);
+  const lvl=CFG.level, cc=CFG.ccat; sync(CFG,c.CFG); CFG.level=lvl; CFG.ccat=cc||'retail'; sync(Q,c.Q); sync(TERMS,c.TERMS);
   ORDER.splice(0,ORDER.length,...c.ORDER); LCACHE.clear();
 }
 function loadDB(){
   let db=null;
   try{ const raw=localStorage.getItem(DB_KEY); if(raw) db=JSON.parse(raw,(k,v)=>typeof v==='string'&&RE_DATE.test(v)?new Date(v):v); }catch(e){}
-  if(!db||db.v!==1) return seedDB();
+  if(!db||db.v!==2) return seedDB();
   applyCatalog(db.cat);
   for(const k of ['gen','bon','tickets']) db[k]=db[k]||{};
   // оновлення збережених даних: роль «Поліграфіст» додано пізніше
-  if(!db.mig1){ db.mig1=1; if(!db.roles.some(r=>r.id==='printer')){ db.roles.push({id:'printer',n:'Поліграфіст',perms:['production']}); db.staff.push({...({id:8,login:'printer@druk.test',pass:'print123',n:'Богдан Кравець',role:'printer',online:true,seen:dt(0,8,45)}),id:Math.max(...db.staff.map(x=>x.id))+1}); } }
+  if(!db.mig1){ db.mig1=1; if(!db.roles.some(r=>r.id==='printer')){ db.roles.push({id:'printer',n:'Друкар',perms:['production']}); db.staff.push({...({id:8,login:'printer@druk.test',pass:'print123',n:'Богдан Кравець',role:'printer',online:true,seen:dt(0,8,45)}),id:Math.max(...db.staff.map(x=>x.id))+1}); } }
   return db;
 }
 function saveDB(db,withCatalog){
   if(withCatalog||!db.cat) db.cat=collectCatalog();
   try{ localStorage.setItem(DB_KEY,JSON.stringify(db)); }catch(e){}
 }
+// повна сума замовлення: друк + доопрацювання макета + доставка (окремі статті)
+const oTotal=o=>o.sum+(o.rework||0)+(o.dlv||0);
 // макети готові: є хоч один, і всі актуальні (не замінені) перевірені
 const filesOk=fs=>{ const cur=(fs||[]).filter(f=>f.st!=='old'); return cur.length>0&&cur.every(f=>f.st==='ok'); };
 
@@ -491,12 +524,12 @@ function calcSum(C,m,qk,w,h,n){
 function seedDB(){
   const RL=[
     {id:'owner',n:'Власник',fixed:1,perms:[]},
-    {id:'admin',n:'Адмін',perms:['settings','levels','cost','allOrders','clients','prepress','production','money','reports','assign','staff']},
-    {id:'accountant',n:'Бухгалтер',perms:['cost','allOrders','clients','money','reports']},
-    {id:'mplus',n:'Менеджер+',perms:['cost','allOrders','clients','prepress','production','money','reports','assign']},
-    {id:'manager',n:'Менеджер',perms:['allOrders','clients','prepress','production','money']},
-    {id:'designer',n:'Дизайнер',perms:['prepress','production']},
-    {id:'printer',n:'Поліграфіст',perms:['production']},
+    {id:'admin',n:'Адмін',perms:['settings','levels','cost','allOrders','clients','prepress','production','money','reports','assign','staff','behalf','delivery']},
+    {id:'accountant',n:'Бухгалтер',perms:['cost','allOrders','clients','money','reports','pay']},
+    {id:'mplus',n:'Менеджер+',perms:['cost','allOrders','clients','prepress','production','money','reports','assign','credit','behalf','delivery','rework']},
+    {id:'manager',n:'Менеджер',perms:['allOrders','clients','prepress','production','money','credit','behalf','delivery','rework','assign']},
+    {id:'designer',n:'Дизайнер',perms:['prepress','rework']},
+    {id:'printer',n:'Друкар',perms:['production']},
   ];
   const STAFF=[
     {id:1,login:'vasylkovskyi@druk.test',pass:'owner123',n:'Васільковський',role:'owner',online:true,seen:dt(0,9,2)},
@@ -510,18 +543,18 @@ function seedDB(){
   ];
   const INK={sol:20,eco:30,eco2:40,q720:25,q1440:35,photo:45,uv:60,uvgl:75,uvmat:75,uvcw:90,uvw:70,uvwc:90,uvl:100,w1:60,w2:90,none:0};
   const CL=[
-    {id:10245,n:'Олена Коваль',ph:'+380 67 123 45 67',em:'olena@example.com',type:'fop',co:'ФОП Коваль Олена Василівна',level:'regular',since:dt(-120)},
-    {id:10212,n:'Сергій Павленко',ph:'+380 50 222 33 44',em:'office@dvir.example',type:'company',co:'ТОВ «Рекламний двір»',level:'agency',since:dt(-400)},
-    {id:10301,n:'Максим Гончар',ph:'+380 93 555 12 12',em:'max.g@example.com',type:'person',co:'',level:'retail',since:dt(-3)},
-    {id:10188,n:'Ольга Мороз',ph:'+380 66 700 80 90',em:'zerno@example.com',type:'fop',co:'ФОП Мороз О. І. (кав’ярня «Зерно»)',level:'partner',since:dt(-260)},
-    {id:10330,n:'Наталія Яковенко',ph:'+380 97 404 04 04',em:'n.yakovenko@example.com',type:'person',co:'',level:'retail',since:dt(-1)},
+    {id:10245,n:'Олена Коваль',ph:'+380 67 123 45 67',em:'olena@example.com',type:'fop',co:'ФОП Коваль Олена Василівна',level:'regular',cat:'retail',since:dt(-120)},
+    {id:10212,n:'Сергій Павленко',ph:'+380 50 222 33 44',em:'office@dvir.example',type:'company',co:'ТОВ «Рекламний двір»',level:'agency',cat:'agency',since:dt(-400)},
+    {id:10301,n:'Максим Гончар',ph:'+380 93 555 12 12',em:'max.g@example.com',type:'person',co:'',level:'retail',cat:'retail',since:dt(-3)},
+    {id:10188,n:'Ольга Мороз',ph:'+380 66 700 80 90',em:'zerno@example.com',type:'fop',co:'ФОП Мороз О. І. (кав’ярня «Зерно»)',level:'partner',cat:'opt',since:dt(-260)},
+    {id:10330,n:'Наталія Яковенко',ph:'+380 97 404 04 04',em:'n.yakovenko@example.com',type:'person',co:'',level:'retail',cat:'retail',since:dt(-1)},
   ];
   const LEDGER=[
     {c:10245,d:dt(-15,9,30),t:'Поповнення балансу карткою',s:5000},{c:10245,d:dt(-14,16,50),t:'Оплата замовлення №47950',s:-2310.5},
     {c:10245,d:dt(-12,12,35),t:'Оплата замовлення №47988',s:-1188},{c:10245,d:dt(-7,11,0),t:'Оплата за рахунком СФ-3074',s:2000},
     {c:10245,d:dt(-6,14,5),t:'Оплата замовлення №48101',s:-1146.3},{c:10245,d:dt(-3,10,25),t:'Оплата замовлення №48152',s:-1912},
     {c:10245,d:dt(-2,10,0),t:'Поповнення балансу карткою',s:2500},{c:10245,d:dt(-1,12,3),t:'Оплата замовлення №48190',s:-1508.6},
-    {c:10212,d:dt(-30),t:'Оплата за рахунком СФ-3010',s:30000},{c:10212,d:dt(-20),t:'Оплата замовлення №48170',s:-6240},{c:10212,d:dt(-4),t:'Оплата замовлення №48226',s:-8790},{c:10212,d:dt(-2),t:'Оплата замовлення №48200',s:-3120},
+    {c:10212,d:dt(-30),t:'Оплата за рахунком СФ-3010',s:30000},{c:10212,d:dt(-20),t:'Оплата замовлення №48170',s:-6240},
     {c:10188,d:dt(-10),t:'Поповнення балансу карткою',s:3000},{c:10188,d:dt(-1,15),t:'Оплата замовлення №48229',s:-1890},
     {c:10330,d:dt(0,8,20),t:'Поповнення балансу карткою',s:1500},{c:10330,d:dt(0,8,22),t:'Оплата замовлення №48220',s:-1230},
   ];
@@ -536,27 +569,28 @@ function seedDB(){
     return {id,c,d:dt(dOff,10+(id%8),id%60),cat,mi,mat:m,qk,w,h,tir,kits:x.kits||1,term,ready:dt(readyOff,18),st,who,
       name:m.n,opts:x.opts||[],sum:x.sum,paid:x.paid??(['paid','print','ready','sent','done'].includes(st)?x.sum:0),
       files:x.files||[],deliv:x.deliv||'self',ttn:x.ttn||'',rework:x.rework||0,reworkReq:!!x.reworkReq,fixReason:x.fix||'',
-      thread:x.thread||[],log:[{d:dt(dOff,10+(id%8),id%60),t:'Замовлення створено клієнтом'}],title:x.title||''};
+      thread:x.thread||[],log:[{d:dt(dOff,10+(id%8),id%60),t:'Замовлення створено клієнтом'}],title:x.title||'',
+      des:x.des||null,rv:x.rv||(x.des?'todo':'none'),dlv:x.dlv||0,credit:x.credit||null,mach:x.mach||null};
   }
   const ORD=[
-    O(48234,10212,0,'film',0,'eco',1000,500,20,'Стандарт 1 день',1,'check',null,{files:[{n:'logo_stickers_1000x500.pdf',st:'wait',at:dt(0,9,15)}],opts:['Плотерна порізка: проста'],deliv:'np'}),
+    O(48234,10212,0,'film',0,'eco',1000,500,20,'Стандарт 1 день',1,'check',null,{des:6,rv:'todo',files:[{n:'logo_stickers_1000x500.pdf',st:'wait',at:dt(0,9,15)}],opts:['Плотерна порізка: проста'],deliv:'np'}),
     O(48233,10301,0,'banner',1,'sol',2000,1000,1,'Стандарт 1 день',2,'new',null,{opts:['Порізка: в заданому розмірі','Люверсовка по кутам']}),
-    O(48231,10245,0,'banner',0,'sol',3000,1000,2,'Стандарт 1 день',1,'check',4,{files:[{n:'banner_3000x1000.pdf',st:'wait',at:dt(0,9,40)}],opts:['Порізка: в заданому розмірі','Люверсовка по периметру, 10 мм, крок 300 мм'],deliv:'np'}),
+    O(48231,10245,0,'banner',0,'sol',3000,1000,2,'Стандарт 1 день',1,'check',4,{des:6,rv:'doing',files:[{n:'banner_3000x1000.pdf',st:'wait',at:dt(0,9,40)}],opts:['Порізка: в заданому розмірі','Люверсовка по периметру, 10 мм, крок 300 мм'],deliv:'np'}),
     O(48229,10188,-1,'paper',0,'sol',1200,1800,10,'Стандарт 1 день',0,'paid',3,{files:[{n:'menu_poster.pdf',st:'ok'}],opts:['Порізка в розмір']}),
-    O(48226,10212,-4,'banner',1,'sol',6000,3000,1,'Стандарт 1 день',-1,'print',5,{files:[{n:'fasad_6x3.pdf',st:'ok'}],opts:['Зпаювання частин','Люверсовка по периметру, крок 300 мм','Зпаювання підворота'],deliv:'np'}),
+    O(48226,10212,-4,'banner',1,'sol',6000,3000,1,'Стандарт 1 день',-1,'print',5,{paid:0,credit:{date:dt(-1,0),by:4},mach:'m1',dlv:250,files:[{n:'fasad_6x3.pdf',st:'ok'}],opts:['Зпаювання частин','Люверсовка по периметру, крок 300 мм','Зпаювання підворота'],deliv:'np'}),
     O(48220,10330,0,'posters',0,'eco',594,841,30,'Стандарт 1 день',1,'paid',null,{files:[{n:'tablychky_kabinety.pdf',st:'ok'}]}),
     O(48217,10245,-1,'film',1,'eco',500,700,10,'Стандарт 1 день',1,'fix',3,{kits:2,files:[{n:'stickers_v1.pdf',st:'bad',reason:'Текст ближче ніж 5 мм до лінії порізки; шрифти не переведені в криві.'},{n:'stickers_2.pdf',st:'ok'}],opts:['Плотерна порізка: проста, 2,4 м пог./шт'],fix:'Текст ближче ніж 5 мм до лінії порізки; шрифти не переведені в криві.',
       thread:[{d:dt(-1,16,30),from:'Препрес',t:'Макет stickers_v1.pdf повернено на виправлення…'},{d:dt(-1,16,50),from:'Клієнт',t:'А якщо відступ 3 мм — це критично?'},{d:dt(-1,17,5),from:'Препрес',t:'Так, порізка має допуск ±1,5 мм. Рекомендуємо 5 мм.'}]}),
-    O(48215,10188,-1,'film',2,'eco',600,600,4,'Стандарт 1 день',1,'check',6,{reworkReq:true,files:[{n:'zerno_logo.jpg',st:'bad',reason:'Низька роздільна здатність (72 dpi) для 1440 dpi'}],opts:['Плотерна порізка: проста'],
+    O(48215,10188,-1,'film',2,'eco',600,600,4,'Стандарт 1 день',1,'check',6,{des:6,rv:'bad',reworkReq:true,files:[{n:'zerno_logo.jpg',st:'bad',reason:'Низька роздільна здатність (72 dpi) для 1440 dpi'}],opts:['Плотерна порізка: проста'],
       thread:[{d:dt(-1,12),from:'Клієнт',t:'Замовляю доопрацювання — зробіть, будь ласка, векторний логотип.'}]}),
-    O(48200,10212,-3,'paper',0,'eco',1200,1800,8,'Стандарт 1 день',-1,'ready',4,{files:[{n:'citylights_x8.pdf',st:'ok'}],deliv:'np'}),
-    O(48190,10245,-2,'paper',0,'eco',1200,1800,4,'Стандарт 1 день',0,'print',4,{files:[{n:'citylight_1200x1800.tif',st:'ok'}],opts:['Порізка в розмір'],deliv:'np'}),
+    O(48200,10212,-3,'paper',0,'eco',1200,1800,8,'Стандарт 1 день',-1,'ready',4,{paid:0,credit:{date:dt(3,0),by:4},dlv:180,files:[{n:'citylights_x8.pdf',st:'ok'}],deliv:'np'}),
+    O(48190,10245,-2,'paper',0,'eco',1200,1800,4,'Стандарт 1 день',0,'print',4,{mach:'m2',dlv:120,files:[{n:'citylight_1200x1800.tif',st:'ok'}],opts:['Порізка в розмір'],deliv:'np'}),
     O(48152,10245,-3,'posters',1,'sol',1200,1800,5,'Стандарт 1 день',-1,'ready',3,{files:[{n:'tablychky.pdf',st:'ok'}]}),
-    O(48101,10245,-6,'canvas',0,'eco2',600,900,1,'Стандарт 1 день',-2,'sent',4,{files:[{n:'kartyna.jpg',st:'ok'}],deliv:'np',ttn:'20450912345678'}),
+    O(48101,10245,-6,'canvas',0,'eco2',600,900,1,'Стандарт 1 день',-2,'sent',4,{dlv:95,files:[{n:'kartyna.jpg',st:'ok'}],deliv:'np',ttn:'20450912345678'}),
     O(48170,10212,-20,'banner',1,'sol',4000,2000,3,'Стандарт 1 день',-19,'done',3,{files:[{n:'tents.pdf',st:'ok'}],deliv:'np',ttn:'20450900000077'}),
     O(47988,10245,-12,'banner',1,'eco',800,1800,2,'Стандарт 1 день',-11,'done',4,{files:[{n:'xbanner.pdf',st:'ok'}],deliv:'np',ttn:'20450900011122'}),
     O(47950,10245,-14,'banner',5,'sol',6000,3000,1,'Стандарт 1 день',-12,'done',5,{files:[{n:'fasad_mesh.pdf',st:'ok'}]}),
-    O(47911,10245,-16,'film',6,'eco',1200,900,3,'Стандарт 1 день',-15,'cancel',null,{}),
+    O(47911,10245,-16,'film',4,'eco',1200,900,3,'Стандарт 1 день',-15,'cancel',null,{}),
   ];
   const ord=id=>ORD.find(o=>o.id==id);
   LEDGER.forEach(x=>{ const m=/Оплата замовлення №(\d+)/.exec(x.t), o=m&&ord(m[1]); if(o) x.s=-o.sum; });
@@ -586,5 +620,5 @@ function seedDB(){
   const bon={10245:[{d:dt(-20,10,0),t:'Вітальні бонуси за реєстрацію',s:50},{d:dt(-12,18,0),t:'Нараховано за замовлення',o:47950,s:69.32},{d:dt(-11,18,0),t:'Нараховано за замовлення',o:47988,s:35.64},
     {d:dt(-3,10,25),t:'Списано при оплаті',o:48152,s:-62.21},{d:dt(-2,18,0),t:'Нараховано за замовлення',o:48101,s:34.39},{d:dt(-1,18,0),t:'Нараховано за замовлення',o:48152,s:57.36}]};
   const tickets={10245:[{id:311,d:dt(-13,11,0),subj:'Відтінок синього на банері',o:47950,st:'Відповідь надано'},{id:298,d:dt(-30,15,0),subj:'Як підготувати макет для висічки?',st:'Закрито'}]};
-  return {v:1,mig1:1,orders:ORD,clients:CL,ledger:LEDGER,inv:INV,staff:STAFF,roles:RL,texts:TEXTS,ink:INK,gen:{},bon,tickets};
+  return {v:2,mig1:1,orders:ORD,clients:CL,ledger:LEDGER,inv:INV,staff:STAFF,roles:RL,texts:TEXTS,ink:INK,gen:{},bon,tickets};
 }

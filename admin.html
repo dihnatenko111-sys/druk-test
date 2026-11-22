@@ -2,12 +2,11 @@
 <html lang="uk">
 <head>
 <meta charset="utf-8">
-<meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Адмінка друку</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=7">
+<link rel="stylesheet" href="app.css?v=8">
 <style>
 /* ---------- адмінка ---------- */
 .atop{display:flex;align-items:center;gap:16px;padding:12px 24px;flex-wrap:wrap}
@@ -19,6 +18,7 @@
 .dot.off{background:var(--dis)}
 .alay{display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px;max-width:1360px;margin:0 auto;padding:0 24px}
 .alay.solo{grid-template-columns:minmax(0,1fr)}
+@media (min-width:1600px){ .alay{max-width:none;padding:0 32px;grid-template-columns:240px minmax(0,1fr)} }
 .side{position:sticky;top:16px;align-self:start;margin-top:24px;display:flex;flex-direction:column;gap:2px}
 .side a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;color:var(--ink);font-weight:500;font-size:14px}
 .side a svg{width:18px;height:18px;color:var(--muted)}
@@ -109,7 +109,7 @@ select.ed{padding-right:24px;background-position:right 8px center}
 <div class="alay"><nav class="side" id="side"></nav><main class="amain" id="app"></main></div>
 <div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
 
-<script src="shared.js?v=7"></script>
+<script src="shared.js?v=8"></script>
 <script>
 /* =====================================================================
    АДМІНКА + CRM. Тестові дані, в пам'яті сторінки.
@@ -126,9 +126,12 @@ I.cog=sv('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.
 I.badge=sv('<rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M8 17c.8-2 2.2-3 4-3s3.2 1 4 3"/>');
 
 /* ---------- ролі й права: власник змінює права, створює й видаляє ролі ---------- */
-const PERMS=[['settings','Ціни, матеріали, налаштування'],['levels','Рівні клієнтів'],['cost','Собівартість і маржа'],
+const PERMS=[['settings','Ціни, матеріали, налаштування'],['levels','Рівні й категорії клієнтів'],['crm','CRM і виробництво'],['cost','Собівартість і маржа'],
   ['allOrders','Усі замовлення','Без цього права — тільки замовлення, взяті в роботу'],['clients','Клієнти'],['prepress','Препрес (перевірка макетів)'],
-  ['production','Черга виробництва'],['money','Рахунки й оплати'],['reports','Звіти по замовленнях'],['assign','Призначати замовлення іншим'],['profit','Дашборд «Заробіток»'],['staff','Персонал (додати, видалити співробітника)']];
+  ['production','Черга виробництва'],['money','Рахунки й оплати'],['reports','Звіти по замовленнях'],['assign','Призначати замовлення іншим'],['profit','Дашборд «Заробіток»'],['staff','Персонал (додати, видалити співробітника)'],
+  ['pay','Змінювати статус оплати','«Оплачено / Не оплачено», списання з балансу, підтвердження рахунку. За ТЗ — тільки бухгалтер'],
+  ['credit','Друк без оплати','Тільки з обов’язковою датою оплати; у цю дату — нагадування'],
+  ['behalf','Створювати клієнтів і замовлення від їх імені'],['delivery','Додавати доставку в замовлення'],['rework','Доопрацювання макета й ціна доопрацювання']];
 // дані — зі спільного сховища (shared.js); сайт клієнта бачить ті самі замовлення, клієнтів і ціни
 let DB,ORD,CL,LEDGER,INV,STAFF,RL,TEXTS,INK;
 const ROLES={}; function syncRoles(){ for(const k in ROLES) delete ROLES[k]; RL.forEach(r=>{ ROLES[r.id]=r.n; }); }
@@ -153,7 +156,7 @@ const cl=id=>CL.find(c=>c.id===id)||{id,n:'Видалений клієнт',ph:'
 const bal=c=>LEDGER.filter(x=>x.c===c).reduce((a,x)=>a+x.s,0);
 
 /* ---------- замовлення ---------- */
-const ST={new:['Нове','gray'],check:['Перевірка макета','amber'],fix:['На виправленні','red'],paid:['Оплачено','blue'],print:['У друці','indigo'],ready:['Готово','green'],sent:['Відправлено','cyan'],done:['Виконано','gray'],cancel:['Скасовано','gray']};
+const ST={new:['Нове','gray'],check:['Перевірка макета','amber'],fix:['На виправленні','red'],paid:['Черга друку','blue'],print:['У друці','indigo'],ready:['Готово','green'],sent:['Відправлено','cyan'],done:['Виконано','gray'],cancel:['Скасовано','gray']};
 // дозволені переходи статусів
 const NEXT={new:['check','cancel'],check:['fix','paid','cancel'],fix:['check','cancel'],paid:['print'],print:['ready'],ready:['sent','done'],sent:['done'],done:[],cancel:[]};
 const badge=st=>`<span class="badge b-${ST[st][1]}">${ST[st][0]}</span>`;
@@ -161,9 +164,21 @@ const badge=st=>`<span class="badge b-${ST[st][1]}">${ST[st][0]}</span>`;
 // сума за прайсом: друк + відхід (або фіксована ціна формату)
 const ord=id=>ORD.find(o=>o.id==id);
 // рух коштів і рахунки — за фактичними сумами замовлень
-const due=o=>Math.max(0,o.sum+o.rework-o.paid);
+const due=o=>Math.max(0,oTotal(o)-o.paid);
 const isPaid=o=>due(o)<.005;
 const open_=o=>!['done','cancel'].includes(o.st);
+// перевірка макета (як у Jira): менеджер призначає дизайнера, дизайнер веде статус
+const RV={none:['Не призначено','gray'],todo:['До перевірки','amber'],doing:['Перевіряється','blue'],ok:['Перевірено','green'],bad:['Повернено','red']};
+const rvBadge=k=>`<span class="badge b-${RV[k||'none'][1]}">${RV[k||'none'][0]}</span>`;
+// борг = замовлення пішло в друк без оплати і ще не оплачене
+const isDebt=o=>o.st!=='cancel'&&!!o.credit&&due(o)>0.005;
+const debtsOf=cid=>ORD.filter(o=>o.c===cid&&isDebt(o));
+const ccatOf=c=>CFG.ccats.find(x=>x.id===c.cat)||CFG.ccats[0];
+const payBadge=o=>o.st==='cancel'?'—':isPaid(o)?'<span class="badge b-green">Оплачено</span>':o.credit?`<span class="badge b-red" title="Друк без оплати">Борг · до ${dstr(o.credit.date)}</span>`:o.paid?'<span class="badge b-amber">Частково</span>':'<span class="badge b-gray">Не оплачено</span>';
+// нагадування про оплату — за налаштуваннями (увімкнено, заздалегідь за N днів, у день оплати, прострочені)
+function reminders(){ const R=CFG.remind; if(!R||!R.on) return [];
+  return ORD.filter(isDebt).filter(o=>can('allOrders')||o.who===meId).map(o=>({o,d:dayKey(o.credit.date)})).filter(x=>(x.d===0&&R.onDay)||(x.d<0&&R.overdue)||(x.d>0&&x.d<=R.every)).sort((a,b)=>a.d-b.d); }
+const remTxt=d=>d<0?`<span class="badge b-red">прострочено ${-d} дн.</span>`:d===0?'<span class="badge b-amber">сьогодні</span>':`через ${d} дн.`;
 // макети готові: є хоч один, і всі актуальні (не замінені новими) перевірені
 const layoutsOk=o=>filesOk(o.files);
 // клієнт завантажив новий макет — повернені стають «замінено»
@@ -187,7 +202,7 @@ function logO(o,t){ o.log.push({d:new Date(),t:`${short(ME().n)}: ${t}`}); }
 function sendClient(o,from,t,x){ (o.thread=o.thread||[]).push({d:new Date(),from,t,...x}); } // клієнт бачить це в «Листуванні»
 
 /* ---------- стан інтерфейсу ---------- */
-const U={page:'dash',arg:'',otab:'act',own:'all',q:'',period:30,stab:'cats',scat:'banner',svid:0,ctab:'all',df:'',dt:'',rst:'all'};
+const U={page:'dash',arg:'',otab:'act',own:'all',q:'',period:30,stab:'cats',scat:'banner',svid:0,ctab:'all',df:'',dt:'',rst:'all',oview:'board',fMgr:'',fDes:'',fRv:'',fPay:'',fSum:'',fPd:'',fSt:'',combo:false,nm:false};
 
 /* ---------- шапка й меню ---------- */
 function renderWho(){
@@ -205,12 +220,12 @@ function pLogin(){
     <table class="tbl compact" style="min-width:0;margin-top:8px"><tbody>${STAFF.map(s=>`<tr class="row" data-act="fill" data-id="${s.id}"><td>${ROLES[s.role]}<small>${esc(short(s.n))}</small></td><td>${s.login}<small>${s.pass}</small></td></tr>`).join('')}</tbody></table>
     <div class="muted" style="margin-top:6px">Тестова версія: дані зберігаються в цьому браузері.</div></div></div>`;
 }
-function visibleOrders(){ return ORD.filter(o=>can('allOrders')||o.who===meId); }
+function visibleOrders(){ return ORD.filter(o=>can('allOrders')||o.who===meId||o.des===meId); }
 function renderSide(){
   const pp=prepQueue().length, freeN=ORD.filter(o=>open_(o)&&!o.who&&o.st!=='cancel').length;
   const items=[
-    ['dash','dash','Дашборд'],['orders','orders','Замовлення',freeN||''],can('prepress')&&['prepress','eye','Препрес',pp||''],can('production')&&['production','printer','Черга виробництва'],
-    can('clients')&&['clients','users','Клієнти'],can('money')&&['money','fin','Рахунки й оплати'],can('reports')&&['reports','doc','Звіти'],
+    ['dash','dash','Дашборд'],['orders','orders','Замовлення',freeN||''],can('prepress')&&['prepress','eye','Препрес',pp||''],can('production')&&['production','printer','Виробництво'],
+    can('clients')&&['clients','users','Клієнти'],can('money')&&['money','fin','Рахунки й оплати',reminders().length||''],can('reports')&&['reports','doc','Звіти'],
     (can('settings')||can('staff'))&&'sep',
     can('settings')&&['settings','cog','Налаштування'],can('staff')&&['staff','badge','Персонал']].filter(Boolean);
   const cur=U.page==='order'?'orders':U.page==='client'?'clients':U.page;
@@ -227,7 +242,10 @@ function pDash(){
   const m2=o=>{ const L=lay(o); return L?L.printArea:0; };
   const buckets=[['Прострочені',o=>dayKey(o.ready)<0],['Сьогодні',o=>dayKey(o.ready)===0],['Завтра',o=>dayKey(o.ready)===1],['Пізніше',o=>dayKey(o.ready)>1]];
   const byStatus=['new','check','fix','paid','print'].map(s=>[s,work.filter(o=>o.st===s)]);
+  const rem=(can('pay')||can('credit')||can('money'))?reminders():[];
   let h=pageH('Дашборд',`<span class="muted" style="font-size:13px">${dstr(NOW)}, ${WD[NOW.getDay()]}</span>`)+
+  (rem.length?`<div class="card flush remind"><div class="bar"><b>Нагадування про оплату</b><span class="muted" style="font-size:13px">друк без оплати · ${fmt(rem.reduce((a,x)=>a+due(x.o),0))} грн</span></div><div class="tbl-wrap"><table class="tbl compact" style="min-width:560px"><thead><tr><th>Замовлення</th><th>Клієнт</th><th>Дата оплати</th><th class="r">Борг</th><th>Менеджер</th></tr></thead><tbody>
+    ${rem.map(({o,d})=>`<tr class="row" data-go="order/${o.id}"><td><b>№${o.id}</b><small>${badge(o.st)}</small></td><td>${esc(cl(o.c).n)}<small>${cl(o.c).ph}</small></td><td>${dstr(o.credit.date)}<small>${remTxt(d)}</small></td><td class="r"><b style="color:var(--bad)">${fmt(due(o))}</b></td><td>${o.who?short(staffN(o.who)):'—'}</td></tr>`).join('')}</tbody></table></div></div>`:'')+
   `<div class="stats four">
     <div class="stat"><div class="k">У роботі</div><div class="v">${work.length}</div><div class="s">замовлень до друку включно</div></div>
     <div class="stat"><div class="k">Площа друку</div><div class="v">${fmt1(work.reduce((a,o)=>a+m2(o),0))} <small>м²</small></div><div class="s">у роботі</div></div>
@@ -262,7 +280,7 @@ const dateFilter=()=>`<label class="dfl">з <input class="inp" type="date" id="f
 
 /* ---------- звіт по одному замовленню ---------- */
 function orderReport(o){
-  const k=costOf(o), m=matOf(o), C=CATS[o.cat], total=o.sum+o.rework;
+  const k=costOf(o), m=matOf(o), C=CATS[o.cat], total=oTotal(o);
   const fx=C.fixed&&m.fx&&m.fx[o.w+'x'+o.h], fixed=fx&&fx[o.qk]!=null;
   const printRev=fixed?fx[o.qk]*o.tir*o.kits:(k?k.L.printArea*(m.pr[o.qk]||0):0), wasteRev=fixed||!k?0:k.waste*(m.waste??m.cost);
   return {k,total,fixed,printRev,wasteRev,other:Math.max(0,o.sum-printRev-wasteRev),area:k?k.L.printArea:0,waste:k?k.waste:0,used:k?k.L.used:0,
@@ -273,11 +291,11 @@ function reportCard(o){
   return `<div class="card"><div class="card-h"><h2>Звіт по замовленню</h2></div><table class="sum" style="font-size:13.5px">
     ${r.fixed?`<tr><td>Формат ${o.w}×${o.h} мм × ${o.tir*o.kits} шт</td><td>${fmt(r.printRev)}</td></tr>`
       :`<tr><td>Друк ${fmt1(r.area)} м² × ${m.pr[o.qk]??0}</td><td>${fmt(r.printRev)}</td></tr><tr><td>Відхід ${fmt1(r.waste)} м² × ${m.waste??m.cost}</td><td>${fmt(r.wasteRev)}</td></tr>`}
-    ${r.other>0.005?`<tr><td>Додаткові послуги</td><td>${fmt(r.other)}</td></tr>`:''}${o.rework?`<tr><td>Доопрацювання макета</td><td>${fmt(o.rework)}</td></tr>`:''}
+    ${r.other>0.005?`<tr><td>Додаткові послуги</td><td>${fmt(r.other)}</td></tr>`:''}${o.rework?`<tr><td>Доопрацювання макета</td><td>${fmt(o.rework)}</td></tr>`:''}${o.dlv?`<tr><td>Доставка (окремо)</td><td>${fmt(o.dlv)}</td></tr>`:''}
     <tr class="tot"><td>Виручка</td><td>${fmt(r.total)}</td></tr><tr><td>Оплачено</td><td>${fmt(o.paid)}</td></tr><tr class="due"><td>Борг клієнта</td><td>${fmt(r.due)}</td></tr>
     ${cst?`<tr><td style="padding-top:12px">Матеріал ${fmt1(r.used)} м² (з відходом)</td><td style="padding-top:12px">${fmt(r.k?r.k.material:0)}</td></tr><tr><td>Друк (фарба, знос)</td><td>${fmt(r.k?r.k.ink:0)}</td></tr>
       <tr class="tot"><td>Собівартість</td><td>${fmt(r.cost)}</td></tr><tr><td>Прибуток</td><td style="color:var(--ok);font-weight:700">${fmt(r.profit)} · ${r.total?fmt1(r.profit/r.total*100):0}%</td></tr>`:''}
-   </table><div class="log" style="margin-top:12px"><div>Створено: <b>${dstr(o.d)} ${tstr(o.d)}</b></div><div>Готовність: <b>${dstr(o.ready)}</b></div><div>Виконавець: <b>${o.who?staffN(o.who):'—'}</b></div></div></div>`;
+   </table><div class="log" style="margin-top:12px"><div>Створено: <b>${dstr(o.d)} ${tstr(o.d)}</b></div><div>Готовність: <b>${dstr(o.ready)}</b></div><div>Менеджер: <b>${o.who?staffN(o.who):'—'}</b></div><div>Дизайнер: <b>${o.des?staffN(o.des):'—'}</b></div></div></div>`;
 }
 
 /* =====================================================================
@@ -291,11 +309,11 @@ function reportRows(){
 function reportTable(list,compact){
   const cst=can('cost'), rs=list.map(o=>({o,r:orderReport(o)})), live=rs.filter(x=>x.o.st!=='cancel');
   const T=k=>live.reduce((a,x)=>a+x.r[k],0), paid=live.reduce((a,x)=>a+x.o.paid,0);
-  return `<div class="tbl-wrap"><table class="tbl compact" style="min-width:${compact?640:1080}px"><thead><tr><th>№ / дата</th><th>Клієнт</th>${compact?'':'<th>Продукт</th><th class="r">Друк, м²</th><th class="r">Відхід, м²</th>'}<th class="r">Сума</th><th class="r">Оплачено</th><th class="r">Борг</th>${cst?'<th class="r">Собівартість</th><th class="r">Прибуток</th>'+(compact?'':'<th class="r">Маржа</th>'):''}<th>Статус</th>${compact?'':'<th>Виконавець</th>'}</tr></thead><tbody>
-   ${rs.map(({o,r})=>`<tr class="row" data-go="order/${o.id}"><td><b>${o.id}</b><small>${dstr(o.d)}</small></td><td>${esc(cl(o.c).n)}</td>${compact?'':`<td>${CATS[o.cat].n}<small>${o.name}</small></td><td class="r">${fmt1(r.area)}</td><td class="r">${fmt1(r.waste)}</td>`}
+  return `<div class="tbl-wrap"><table class="tbl compact" style="min-width:${compact?640:1080}px"><thead><tr><th>№ / дата</th><th>Клієнт</th>${compact?'':'<th>Продукт</th><th class="r">Друк, м²</th><th class="r">Відхід, м²</th><th class="r">Друк, грн</th><th class="r">Доставка</th>'}<th class="r">Сума</th><th class="r">Оплачено</th><th class="r">Борг</th>${cst?'<th class="r">Собівартість</th><th class="r">Прибуток</th>'+(compact?'':'<th class="r">Маржа</th>'):''}<th>Статус</th>${compact?'':'<th>Виконавець</th>'}</tr></thead><tbody>
+   ${rs.map(({o,r})=>`<tr class="row" data-go="order/${o.id}"><td><b>${o.id}</b><small>${dstr(o.d)}</small></td><td>${esc(cl(o.c).n)}</td>${compact?'':`<td>${CATS[o.cat].n}<small>${o.name}</small></td><td class="r">${fmt1(r.area)}</td><td class="r">${fmt1(r.waste)}</td><td class="r">${fmt(o.sum+o.rework)}</td><td class="r">${o.dlv?fmt(o.dlv):'—'}</td>`}
      <td class="r">${fmt(r.total)}</td><td class="r">${fmt(o.paid)}</td><td class="r">${r.due>0.005?`<b style="color:var(--bad)">${fmt(r.due)}</b>`:'—'}</td>${cst?`<td class="r">${fmt(r.cost)}</td><td class="r"><b>${fmt(r.profit)}</b></td>`+(compact?'':`<td class="r">${r.total?fmt1(r.profit/r.total*100):0}%</td>`):''}
      <td>${badge(o.st)}</td>${compact?'':`<td>${o.who?short(staffN(o.who)):'—'}</td>`}</tr>`).join('')||`<tr><td colspan="13" class="none">Немає замовлень за цими умовами</td></tr>`}</tbody>
-   ${rs.length?`<tfoot><tr class="totrow"><td colspan="${compact?2:3}">Разом (без скасованих): ${live.length}</td>${compact?'':`<td class="r">${fmt1(T('area'))}</td><td class="r">${fmt1(T('waste'))}</td>`}<td class="r">${fmt(T('total'))}</td><td class="r">${fmt(paid)}</td><td class="r">${fmt(T('due'))}</td>${cst?`<td class="r">${fmt(T('cost'))}</td><td class="r">${fmt(T('profit'))}</td>`+(compact?'':`<td class="r">${T('total')?fmt1(T('profit')/T('total')*100):0}%</td>`):''}<td colspan="2"></td></tr></tfoot>`:''}</table></div>`;
+   ${rs.length?`<tfoot><tr class="totrow"><td colspan="${compact?2:3}">Разом (без скасованих): ${live.length}</td>${compact?'':`<td class="r">${fmt1(T('area'))}</td><td class="r">${fmt1(T('waste'))}</td><td class="r">${fmt(live.reduce((a,x)=>a+x.o.sum+x.o.rework,0))}</td><td class="r">${fmt(live.reduce((a,x)=>a+(x.o.dlv||0),0))}</td>`}<td class="r">${fmt(T('total'))}</td><td class="r">${fmt(paid)}</td><td class="r">${fmt(T('due'))}</td>${cst?`<td class="r">${fmt(T('cost'))}</td><td class="r">${fmt(T('profit'))}</td>`+(compact?'':`<td class="r">${T('total')?fmt1(T('profit')/T('total')*100):0}%</td>`):''}<td colspan="2"></td></tr></tfoot>`:''}</table></div>`;
 }
 function pReports(){
   if(!can('reports')){ app.innerHTML=noAccess(); return; }
@@ -307,9 +325,9 @@ function pReports(){
   <p class="foot-note">Дата у фільтрі — дата створення замовлення. Собівартість = матеріал з відходом + друк; значення собівартості задаються в «Налаштуваннях».</p>`;
 }
 function reportCsv(){
-  const cst=can('cost'), rows=[['№','Дата','Клієнт','№ клієнта','Категорія','Матеріал','Друк','Розмір, мм','Тираж','Друк, м²','Відхід, м²','Сума','Оплачено','Борг',...(cst?['Собівартість','Прибуток']:[]),'Статус','Виконавець']];
+  const cst=can('cost'), rows=[['№','Дата','Клієнт','№ клієнта','Категорія','Матеріал','Друк','Розмір, мм','Тираж','Друк, м²','Відхід, м²','Друк, грн','Доставка, грн','Сума','Оплачено','Борг',...(cst?['Собівартість','Прибуток']:[]),'Статус','Виконавець']];
   for(const o of reportRows()){ const r=orderReport(o), n=x=>String(Math.round(x*100)/100).replace('.',',');
-    rows.push([o.id,dstr(o.d),cl(o.c).n,o.c,CATS[o.cat].n,o.name,qName(o.qk),o.w+'×'+o.h,o.tir*o.kits,n(r.area),n(r.waste),n(r.total),n(o.paid),n(r.due),...(cst?[n(r.cost),n(r.profit)]:[]),ST[o.st][0],o.who?staffN(o.who):'']); }
+    rows.push([o.id,dstr(o.d),cl(o.c).n,o.c,CATS[o.cat].n,o.name,qName(o.qk),o.w+'×'+o.h,o.tir*o.kits,n(r.area),n(r.waste),n(o.sum+o.rework),n(o.dlv||0),n(r.total),n(o.paid),n(r.due),...(cst?[n(r.cost),n(r.profit)]:[]),ST[o.st][0],o.who?staffN(o.who):'']); }
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\n')],{type:'text/csv;charset=utf-8'})); a.download='zvit-zamovlennia.csv'; a.click();
 }
 
@@ -318,26 +336,62 @@ function reportCsv(){
    ===================================================================== */
 const OT=[['act','Активні',o=>open_(o)],['new','Нові',o=>o.st==='new'],['check','Перевірка макета',o=>o.st==='check'],['fix','На виправленні',o=>o.st==='fix'],
   ['paid','Оплачено',o=>o.st==='paid'],['print','У друці',o=>o.st==='print'],['ready','Готово',o=>o.st==='ready'],['sent','Відправлено',o=>o.st==='sent'],['done','Виконано',o=>o.st==='done'],['cancel','Скасовано',o=>o.st==='cancel'],['all','Усі',()=>true]];
+const unpaidReady=o=>o.st==='check'&&layoutsOk(o)&&!isPaid(o)&&!o.credit;
+// колонки CRM-дошки; «Неоплачені рахунки» — макет готовий, але не оплачено, плюс друк без оплати (борги)
+const CRMCOLS=[['new','Нові',o=>o.st==='new'],['check','Перевірка макета',o=>o.st==='check'&&!unpaidReady(o)],['fix','На виправленні',o=>o.st==='fix'],
+  ['unpaid','Неоплачені рахунки',o=>unpaidReady(o)||isDebt(o)],['paid','Черга друку',o=>o.st==='paid'],['print','У друці',o=>o.st==='print'],['ready','Готово',o=>o.st==='ready'],['sent','Відправлено',o=>o.st==='sent']];
+const mgrs=()=>STAFF.filter(s=>['owner','admin','mplus','manager'].includes(s.role)||ORD.some(o=>o.who===s.id));
+const desList=()=>STAFF.filter(s=>s.role==='designer'||ORD.some(o=>o.des===s.id));
+const fSel=(f,all,opts)=>`<select class="sel fsel" data-f="${f}" aria-label="${all}"><option value="">${all}</option>${opts.map(([k,n])=>`<option value="${k}" ${String(U[f])===String(k)?'selected':''}>${esc(n)}</option>`).join('')}</select>`;
+const srch=o=>{ const q=U.q.trim().toLowerCase(); return !q||String(o.id).includes(q)||cl(o.c).n.toLowerCase().includes(q)||o.name.toLowerCase().includes(q)||String(o.c).includes(q); };
+const fPass=o=>(!U.fMgr||o.who==U.fMgr)&&(!U.fDes||o.des==U.fDes)&&(!U.fRv||(o.rv||'none')===U.fRv)&&(!U.fPay||(U.fPay==='paid'?isPaid(o):U.fPay==='debt'?isDebt(o):!isPaid(o)))
+  &&(!U.fSum||oTotal(o)>=+U.fSum)&&(!U.fPd||(o.credit&&dkey(o.credit.date)<=U.fPd))&&(!U.fSt||o.st===U.fSt);
+const anyF=()=>U.q||U.df||U.dt||U.fMgr||U.fDes||U.fRv||U.fPay||U.fSum||U.fPd||U.fSt;
+function crmFilters(){
+  return `<input class="inp" id="oq" placeholder="№ замовлення, клієнт, матеріал" value="${esc(U.q)}" style="max-width:240px">
+   ${fSel('fMgr','Усі менеджери',mgrs().map(s=>[s.id,short(s.n)]))}${fSel('fDes','Усі дизайнери',desList().map(s=>[s.id,short(s.n)]))}
+   ${fSel('fRv','Перевірка: усі',Object.entries(RV).map(([k,v])=>[k,v[0]]))}${fSel('fSt','Статус: усі',Object.entries(ST).map(([k,v])=>[k,v[0]]))}
+   ${fSel('fPay','Оплата: усі',[['unpaid','Не оплачено'],['debt','Борг (друк без оплати)'],['paid','Оплачено']])}
+   <input class="inp fsum" type="number" min="0" data-f="fSum" placeholder="Сума від" value="${esc(U.fSum)}" aria-label="Сума від">
+   <label class="dfl">оплата до <input class="inp" type="date" data-f="fPd" value="${U.fPd}"></label>
+   <label class="dfl">створено з <input class="inp" type="date" id="fDf" value="${U.df}"></label><label class="dfl">по <input class="inp" type="date" id="fDt" value="${U.dt}"></label>
+   ${anyF()?'<button class="btn sm" data-act="fClear">Скинути фільтри</button>':''}`;
+}
+function kcard(o){
+  const late=open_(o)&&dayKey(o.ready)<0;
+  return `<div class="kcard" draggable="true" data-drag="${o.id}" data-go="order/${o.id}"><div class="kc-h"><b>№${o.id}</b><span>${fmt(oTotal(o))}</span></div>
+   <div class="kc-c">${esc(cl(o.c).n)}</div><div class="muted">${CATS[o.cat].n} · ${o.w}×${o.h} мм · ${o.tir} шт</div>
+   <div class="kc-b">${payBadge(o)}${o.des||o.rv!=='none'?rvBadge(o.rv):''}${late?'<span class="badge b-red">прострочено</span>':''}${o.st!=='check'&&isDebt(o)?badge(o.st):''}</div>
+   <div class="kc-f">${o.who?'Менеджер: '+short(staffN(o.who)):'<span class="free">вільне</span>'}${o.des?' · Дизайнер: '+short(staffN(o.des)):''} · до ${dstr(o.ready)}</div></div>`;
+}
 function pOrders(){
-  const base=visibleOrders(), q=U.q.trim().toLowerCase(), tab=OT.find(t=>t[0]===U.otab);
-  const ownF={all:()=>true,free:o=>!o.who,mine:o=>o.who===meId}[U.own];
-  const list=base.filter(tab[2]).filter(ownF).filter(inDates).filter(o=>!q||String(o.id).includes(q)||cl(o.c).n.toLowerCase().includes(q)||o.name.toLowerCase().includes(q)||String(o.c).includes(q));
+  const base=visibleOrders(), list0=base.filter(srch).filter(inDates).filter(fPass), view=U.oview||'board';
+  const head=pageH('Замовлення',`<div class="seg" style="margin:0">${[['board','Дошка'],['list','Список']].map(([k,n])=>`<a class="${view===k?'on':''}" data-act="oview" data-v="${k}">${n}</a>`).join('')}</div>`)+
+   `<div class="card flush"><div class="bar fbar">${crmFilters()}</div></div>`;
+  if(view==='board'){
+    app.innerHTML=head+`<div class="kb">${CRMCOLS.map(([k,n,f])=>{ const l=list0.filter(f).sort((a,b)=>k==='unpaid'?((a.credit?a.credit.date:a.ready)-(b.credit?b.credit.date:b.ready)):a.ready-b.ready);
+      return `<div class="kcol ${k==='unpaid'?'kunpaid':''}" data-drop="crm:${k}"><div class="kcol-h"><b>${n}</b><span>${l.length}${k==='unpaid'&&l.length?' · '+fmt(l.reduce((a,o)=>a+due(o),0))+' грн':''}</span></div>${l.map(kcard).join('')||'<div class="kempty">Порожньо</div>'}</div>`; }).join('')}</div>
+     <p class="foot-note">Перетягніть картку в іншу колонку, щоб змінити статус. «Неоплачені рахунки»: макет перевірено, але оплати немає, а також друк без оплати (борги з датою оплати). Статус оплати змінює тільки бухгалтер; у друк без оплати пускає тільки менеджер, з датою оплати. «У друці» і «Готово» ставить друкар на виробничій дошці.</p>`;
+    return;
+  }
+  const tab=OT.find(t=>t[0]===U.otab), ownF={all:()=>true,free:o=>!o.who,mine:o=>o.who===meId||o.des===meId}[U.own];
+  const list=list0.filter(tab[2]).filter(ownF);
   const online=STAFF.filter(s=>s.online&&s.role!=='owner');
-  app.innerHTML=pageH('Замовлення')+
-  `<div class="seg">${OT.map(t=>`<a class="${t[0]===U.otab?'on':''}" data-act="otab" data-v="${t[0]}">${t[1]}<b>${base.filter(t[2]).length}</b></a>`).join('')}</div>
+  app.innerHTML=head+
+  `<div class="seg">${OT.map(t=>`<a class="${t[0]===U.otab?'on':''}" data-act="otab" data-v="${t[0]}">${t[1]}<b>${list0.filter(t[2]).length}</b></a>`).join('')}</div>
   <div class="cols narrow">
-  <div class="card flush"><div class="bar"><input class="inp" id="oq" placeholder="№ замовлення, клієнт, матеріал" value="${esc(U.q)}" style="max-width:260px">${dateFilter()}<span class="grow"></span>
+  <div class="card flush"><div class="bar"><span class="grow"></span>
     <div class="seg" style="margin:0">${[['all','Усі'],['free','Вільні'],['mine','Мої']].map(([k,n])=>`<a class="${U.own===k?'on':''}" data-act="own" data-v="${k}">${n}</a>`).join('')}</div></div>
-   <div class="tbl-wrap"><table class="tbl"><thead><tr><th>№ / створено</th><th>Клієнт</th><th>Продукт</th><th>Готовність</th><th>Статус</th><th>Оплата</th><th class="r">Сума</th><th>Виконавець</th></tr></thead><tbody>
+   <div class="tbl-wrap"><table class="tbl"><thead><tr><th>№ / створено</th><th>Клієнт</th><th>Продукт</th><th>Готовність</th><th>Статус</th><th>Оплата</th><th class="r">Сума</th><th>Менеджер / дизайнер</th></tr></thead><tbody>
    ${list.map(o=>{ const g=`data-go="order/${o.id}"`, late=open_(o)&&dayKey(o.ready)<0;
      return `<tr class="row"><td ${g}><b>№${o.id}</b><small>${dstr(o.d)} ${tstr(o.d)}</small></td>
-      <td ${g}>${esc(cl(o.c).n)}<small>№${o.c} · ${CFG.levels.find(l=>l.id===cl(o.c).level).name}</small></td>
+      <td ${g}>${esc(cl(o.c).n)}<small>№${o.c} · ${esc(ccatOf(cl(o.c)).n)}</small></td>
       <td ${g}>${CATS[o.cat].n}<small>${o.name}, ${qName(o.qk)} · ${o.w}×${o.h} мм · ${o.tir} шт${o.kits>1?' ×'+o.kits:''}</small></td>
       <td ${g}>${o.st==='cancel'?'—':`${late?'<span class="badge b-red">прострочено</span><br>':''}${dstr(o.ready)}`}<small>${o.term}</small></td>
-      <td ${g}>${badge(o.st)}</td>
-      <td ${g}>${o.st==='cancel'?'—':isPaid(o)?'<span class="badge b-green">Оплачено</span>':o.paid?'<span class="badge b-amber">Частково</span>':'<span class="badge b-gray">Не оплачено</span>'}</td>
-      <td ${g} class="r"><b>${fmt(o.sum+o.rework)}</b></td>
-      <td>${o.who?short(staffN(o.who)):open_(o)?`<button class="btn sm pri" data-act="take" data-id="${o.id}">Взяти в роботу</button>`:'—'}</td></tr>`; }).join('')||'<tr><td colspan="8" class="none">Немає замовлень</td></tr>'}
+      <td ${g}>${badge(o.st)}${o.des?'<br>'+rvBadge(o.rv):''}</td>
+      <td ${g}>${payBadge(o)}</td>
+      <td ${g} class="r"><b>${fmt(oTotal(o))}</b>${o.dlv?`<small>доставка ${fmt(o.dlv)}</small>`:''}</td>
+      <td>${o.who?short(staffN(o.who)):open_(o)?`<button class="btn sm pri" data-act="take" data-id="${o.id}">Взяти в роботу</button>`:'—'}${o.des?`<small>Д: ${short(staffN(o.des))}</small>`:''}</td></tr>`; }).join('')||'<tr><td colspan="8" class="none">Немає замовлень</td></tr>'}
    </tbody></table></div></div>
   <div class="card"><div class="card-h"><h2>На зміні</h2></div>
    <div style="display:grid;gap:10px;font-size:13.5px">${STAFF.filter(s=>s.role!=='owner').map(s=>{ const n=ORD.filter(o=>o.who===s.id&&open_(o)).length;
@@ -345,24 +399,44 @@ function pOrders(){
       <button class="btn sm" data-act="shift" data-id="${s.id}">${s.online?'Вийшов':'Зайшов'}</button></div>`; }).join('')}</div>
    <p class="muted" style="font-size:12px;margin:12px 0 0">Зміна = менеджер у мережі. Вийшов або пропав — його незакриті замовлення стають вільними для інших (${online.length} онлайн).</p></div></div>`;
 }
+// перенесення картки на CRM-дошці
+function moveCrm(o,k){
+  if(k==='unpaid'||k===o.st) return;
+  if(k==='print'||k==='ready'){ toast('«У друці» і «Готово» ставить друкар на виробничій дошці.'); return; }
+  if(!NEXT[o.st].includes(k)){ toast(`З «${ST[o.st][0]}» не можна перейти в «${ST[k][0]}».`); return; }
+  if(k==='paid'){ if(!layoutsOk(o)){ toast('Не всі макети перевірені.'); return; }
+    if(!isPaid(o)&&!o.credit){ if(can('credit')){ creditModal(o); return; } toast('Замовлення не оплачене. Статус оплати змінює бухгалтер, у друк без оплати пускає менеджер.'); return; } }
+  if(k==='sent'&&!o.ttn){ toast('Спочатку вкажіть ТТН у картці замовлення.'); return; }
+  setStatus(o,k); persist(); rr();
+}
+function creditModal(o){
+  const d=new Date(NOW.getTime()+3*DAY);
+  modal(`<h3>У друк без оплати · №${o.id}</h3><p class="muted" style="margin-top:0">${esc(cl(o.c).n)} · до сплати ${fmt(due(o))} грн. Замовлення стане боргом клієнта; у дату оплати прийде нагадування.</p>
+   <div class="lbl">Дата оплати (обов’язково)</div><input class="inp" type="date" id="crDate" value="${dkey(d)}" min="${dkey(NOW)}">
+   <div class="lbl" style="margin-top:10px">Коментар</div><input class="inp" id="crNote" placeholder="Напр.: оплата після монтажу">
+   <div id="crErr" style="color:var(--bad);font-size:13px;min-height:18px;margin-top:6px"></div><button class="btn pri" data-act="doCredit" data-id="${o.id}">Пустити в друк</button>`);
+}
 
 /* =====================================================================
    3. КАРТКА ЗАМОВЛЕННЯ
    ===================================================================== */
 function pOrder(id){
   const o=ord(id); if(!o){ app.innerHTML=pageH('Замовлення не знайдено'); return; }
-  if(!can('allOrders')&&o.who!==meId&&!(can('production')&&['paid','print','ready'].includes(o.st))){ app.innerHTML=noAccess(); return; }
+  if(!can('allOrders')&&o.who!==meId&&o.des!==meId&&!(can('production')&&['paid','print','ready'].includes(o.st))){ app.innerHTML=noAccess(); return; }
   const c=cl(o.c), lv=CFG.levels.find(l=>l.id===c.level), k=costOf(o), mine=o.who===meId;
   const nx=NEXT[o.st].filter(s=>!(s==='sent'&&o.deliv==='self')&&!(s==='done'&&o.st==='ready'&&o.deliv!=='self'));
-  const stBtn=s=>{ const block=s==='paid'&&!isPaid(o)?'Клієнт ще не оплатив':s==='paid'&&!layoutsOk(o)?'Не всі макети перевірені':s==='sent'&&!o.ttn?'Вкажіть ТТН':'';
+  const stBtn=s=>{ const block=s==='paid'&&!isPaid(o)&&!o.credit?'Чекає оплати (статус оплати змінює бухгалтер)':s==='paid'&&!layoutsOk(o)?'Не всі макети перевірені':s==='sent'&&!o.ttn?'Вкажіть ТТН':'';
     return `<button class="btn sm ${s==='cancel'?'bad':''}" data-act="st" data-v="${s}" data-id="${o.id}" ${block?`disabled title="${block}"`:''}>${s==='cancel'?'Скасувати':'→ '+ST[s][0]}</button>`; };
   app.innerHTML=`<div class="crumbs"><a data-go="orders">Замовлення</a><span>/</span>№${o.id}</div>`+
   pageH(`№${o.id} ${badge(o.st)}`,o.who?`<span class="muted" style="font-size:13px;align-self:center">Виконавець: <b style="color:var(--ink)">${staffN(o.who)}</b></span>${mine?'':''}`:`<button class="btn pri" data-act="take" data-id="${o.id}">Взяти в роботу</button>`)+
-  (nx.length?`<div class="card" style="padding:14px 18px"><div class="btns"><span class="muted" style="font-size:13px;margin-right:4px">Змінити статус:</span>${nx.map(stBtn).join('')}</div></div>`:'')+
+  (nx.length?`<div class="card" style="padding:14px 18px"><div class="btns"><span class="muted" style="font-size:13px;margin-right:4px">Змінити статус:</span>${nx.map(stBtn).join('')}
+    ${can('credit')&&o.st==='check'&&!isPaid(o)&&!o.credit?`<button class="btn sm" data-act="credit" data-id="${o.id}" ${layoutsOk(o)?'':'disabled title="Не всі макети перевірені"'}>У друк без оплати…</button>`:''}</div></div>`:'')+
+  (isDebt(o)?`<div class="alert"><b>Друк без оплати · борг ${fmt(due(o))} грн</b>Дата оплати: ${dstr(o.credit.date)} (${dayKey(o.credit.date)<0?'прострочено':'очікується'}). Дозволив: ${staffN(o.credit.by)}.</div>`:'')+
+  (()=>{ const other=debtsOf(o.c).filter(x=>x.id!==o.id); return other.length?`<div class="alert"><b>У клієнта є борги: ${fmt(other.reduce((a,x)=>a+due(x),0))} грн</b>${other.map(x=>`<a data-go="order/${x.id}">№${x.id}</a> — ${fmt(due(x))} грн, оплата до ${dstr(x.credit.date)}`).join('<br>')}</div>`:''; })()+
   `<div class="cols"><div>
    <div class="card"><div class="card-h"><h2>Клієнт</h2>${can('clients')?`<a data-go="client/${c.id}">Картка клієнта →</a>`:''}</div>
     <dl class="kv2"><dt>Клієнт</dt><dd><b>${esc(c.n)}</b> · №${c.id}${c.co?'<br>'+esc(c.co):''}</dd><dt>Контакти</dt><dd>${c.ph} · ${c.em}</dd>
-     <dt>Рівень</dt><dd>${lv.name}${lv.d?` (−${lv.d*100}%)`:''}</dd>${can('money')?`<dt>Баланс</dt><dd>${fmt(bal(c.id))} грн</dd>`:''}</dl></div>
+     <dt>Категорія</dt><dd>${esc(ccatOf(c).n)}</dd><dt>Рівень</dt><dd>${lv.name}${lv.d?` (−${lv.d*100}%)`:''}</dd>${can('money')?`<dt>Баланс</dt><dd>${fmt(bal(c.id))} грн</dd>`:''}</dl></div>
    <div class="card"><div class="card-h"><h2>Параметри</h2><span class="muted" style="font-size:13px">створено ${dstr(o.d)} ${tstr(o.d)}</span></div>
     <dl class="kv2"><dt>Продукт</dt><dd>${CATS[o.cat].n}${o.title?' · '+esc(o.title):''}</dd><dt>Матеріал</dt><dd>${o.name}</dd><dt>Друк</dt><dd>${qName(o.qk)}</dd>
      <dt>Розмір</dt><dd>${o.w} × ${o.h} мм</dd><dt>Тираж</dt><dd>${o.tir} шт${o.kits>1?` × ${o.kits} комплекти`:''}</dd><dt>Опції</dt><dd>${o.opts.join('<br>')||'—'}</dd>
@@ -374,21 +448,29 @@ function pOrder(id){
    <div class="card"><div class="card-h"><h2>Історія</h2></div><div class="log">${o.log.slice().reverse().map(l=>`<div>${dstr(l.d)} ${tstr(l.d)} — <b>${esc(l.t)}</b></div>`).join('')}</div></div>
   </div><div class="sticky">
    <div class="card"><div class="card-h"><h2>Вартість</h2></div><table class="sum">
-    <tr><td>Друк і опції</td><td>${fmt(o.sum)}</td></tr>${o.rework?`<tr><td>Доопрацювання</td><td>${fmt(o.rework)}</td></tr>`:''}
-    <tr class="tot"><td>Разом</td><td>${fmt(o.sum+o.rework)}</td></tr><tr><td>Оплачено</td><td>${fmt(o.paid)}</td></tr><tr class="due"><td>До сплати</td><td>${fmt(due(o))}</td></tr></table>
-    ${can('money')&&due(o)>0&&o.st!=='cancel'?`<div class="btns" style="margin-top:12px"><button class="btn sm" data-act="payBal" data-id="${o.id}" ${bal(o.c)<due(o)?`disabled title="На балансі ${fmt(bal(o.c))} грн"`:''}>Списати з балансу</button><button class="btn sm" data-act="mkInv" data-id="${o.id}">Рахунок</button></div>`:''}</div>
+    <tr><td>Друк і опції</td><td>${fmt(o.sum)}</td></tr>${o.rework?`<tr><td>Доопрацювання</td><td>${fmt(o.rework)}</td></tr>`:''}<tr><td>Доставка</td><td>${o.dlv?fmt(o.dlv):'—'}</td></tr>
+    <tr class="tot"><td>Разом</td><td>${fmt(oTotal(o))}</td></tr><tr><td>Оплачено</td><td>${fmt(o.paid)}</td></tr><tr class="due"><td>До сплати</td><td>${fmt(due(o))}</td></tr></table>
+    <div class="btns" style="margin-top:12px">${o.st==='cancel'?'':`${isPaid(o)?'<span class="badge b-green">Оплачено</span>':payBadge(o)}
+     ${can('pay')&&due(o)>0?`<button class="btn sm ok" data-act="markPaid" data-id="${o.id}">Оплату отримано</button><button class="btn sm" data-act="payBal" data-id="${o.id}" ${bal(o.c)<due(o)?`disabled title="На балансі ${fmt(bal(o.c))} грн"`:''}>Списати з балансу</button>`:''}
+     ${can('pay')&&o.paid>0?`<button class="btn sm" data-act="unpay" data-id="${o.id}">Не оплачено</button>`:''}
+     ${can('money')&&due(o)>0?(INV.some(v=>v.o.includes(o.id)&&!v.paid)?`<button class="btn sm" data-act="sendInv" data-v="${INV.findIndex(v=>v.o.includes(o.id)&&!v.paid)}">Надіслати рахунок</button>`:`<button class="btn sm" data-act="mkInv" data-id="${o.id}">Виставити рахунок</button>`):''}`}</div>
+    ${can('pay')?'':'<p class="muted" style="font-size:12px;margin:8px 0 0">Статус оплати змінює тільки бухгалтер.</p>'}</div>
    ${can('reports')||can('cost')?reportCard(o):''}
    <div class="card"><div class="card-h"><h2>Доставка</h2></div><dl class="kv2" style="grid-template-columns:90px minmax(0,1fr)"><dt>Спосіб</dt><dd>${o.deliv==='self'?'Самовивіз зі складу':'Нова Пошта'}</dd>
+    <dt>Вартість</dt><dd>${can('delivery')&&o.st!=='cancel'?`<div style="display:flex;gap:6px"><input class="ed" id="dlvP" type="number" min="0" step="1" value="${o.dlv||''}" placeholder="0 грн"><button class="btn sm" data-act="dlvSet" data-id="${o.id}">OK</button></div><small class="muted">окремою статтею; новим клієнтам автоматично не нараховується</small>`:(o.dlv?fmt(o.dlv)+' грн':'не нараховано')}</dd>
     ${o.deliv!=='self'?`<dt>ТТН</dt><dd><div style="display:flex;gap:6px"><input class="ed" id="ttn" value="${esc(o.ttn)}" placeholder="2045…"><button class="btn sm" data-act="ttn" data-id="${o.id}">OK</button></div></dd>`:''}</dl></div>
-   ${can('assign')?`<div class="card"><div class="card-h"><h2>Призначити</h2></div><select class="sel" id="asg">${['<option value="">— вільне —</option>',...STAFF.filter(s=>s.role!=='owner').map(s=>`<option value="${s.id}" ${o.who===s.id?'selected':''}>${s.n} (${ROLES[s.role]})${s.online?'':' — не на зміні'}</option>`)].join('')}</select></div>`:''}
+   ${can('assign')?`<div class="card"><div class="card-h"><h2>Менеджер замовлення</h2></div><select class="sel" id="asg">${['<option value="">— вільне —</option>',...STAFF.filter(s=>s.role!=='owner').map(s=>`<option value="${s.id}" ${o.who===s.id?'selected':''}>${s.n} (${ROLES[s.role]})${s.online?'':' — не на зміні'}</option>`)].join('')}</select></div>`:''}
    ${k?`<div class="card"><div class="card-h"><h2>Розкладка</h2><span class="muted" style="font-size:12px">внутрішнє</span></div>
-    <div style="font-size:13px">${k.L.kind==='roll'?`Рулон <b>${k.L.W} см</b> · ${fmt1(k.L.L/100)} м пог.`:`Лист <b>${k.L.SW}×${k.L.SH} см</b> · ${k.L.n} шт`} · використано ${fmt1(k.L.used)} м²</div><div class="lay-mini">${drawLayout(k.L)}</div></div>`:''}
+    <div style="font-size:13px">${k.L.kind==='roll'?`Рулон <b>${k.L.W*10} мм</b> · ${fmt1(k.L.L/100)} м пог.`:`Лист <b>${k.L.SW*10}×${k.L.SH*10} мм</b> · ${k.L.n} шт`} · використано ${fmt1(k.L.used)} м²</div><div class="lay-mini">${drawLayout(k.L)}</div></div>`:''}
   </div></div>`;
 }
 function prepCard(o){
   const editable=['new','check','fix'].includes(o.st);
+  const designers=STAFF.filter(s=>(roleOf(s.role)||{perms:[]}).perms.includes('prepress')&&s.role!=='owner');
   return `<div class="card"><div class="card-h"><h2>Макети · препрес</h2></div>
-   ${o.reworkReq&&!o.rework?`<div class="alert info"><b>Клієнт замовив доопрацювання макета</b>Оцініть роботу й виставте вартість — вона додасться до замовлення і прийде клієнту в листування.
+   <div class="jira"><label><span class="lbl">Перевіряє дизайнер</span>${can('assign')?`<select class="sel" id="desAsg" data-id="${o.id}"><option value="">— не призначено —</option>${designers.map(s=>`<option value="${s.id}" ${o.des===s.id?'selected':''}>${esc(s.n)} (${ROLES[s.role]})</option>`).join('')}</select>`:`<b>${o.des?esc(staffN(o.des)):'не призначено'}</b>`}</label>
+    <label><span class="lbl">Статус перевірки</span>${can('prepress')?`<select class="sel" id="rvSel" data-id="${o.id}">${Object.entries(RV).map(([k,v])=>`<option value="${k}" ${(o.rv||'none')===k?'selected':''}>${v[0]}</option>`).join('')}</select>`:rvBadge(o.rv)}</label></div>
+   ${o.reworkReq&&!o.rework&&can('rework')?`<div class="alert info"><b>Клієнт замовив доопрацювання макета</b>Оцініть роботу й виставте вартість — вона додасться до замовлення і прийде клієнту в листування.
      <div class="btns" style="margin-top:8px"><input class="ed" id="rwP" type="number" min="0" placeholder="грн" style="width:110px"><button class="btn sm pri" data-act="rwSet" data-id="${o.id}">Виставити вартість</button></div></div>`:''}
    ${o.rework?`<div class="alert info" style="background:var(--green-bg)"><b>Доопрацювання: ${fmt(o.rework)} грн</b>Додано до замовлення.</div>`:''}
    <div class="files">${o.files.map((f,i)=>`<div class="file" style="flex-wrap:wrap">${I.file}<span class="n">${esc(f.n)}${f.at?` <span class="muted" style="font-size:12px">· ${ago(f.at)} тому</span>`:''}</span>
@@ -406,34 +488,86 @@ function prepQueue(){
 }
 function pPrepress(){
   if(!can('prepress')){ app.innerHTML=noAccess(); return; }
-  const q=prepQueue(), rw=visibleOrders().filter(o=>o.reworkReq&&!o.rework);
+  const pf=o=>srch(o)&&(!U.fMgr||o.who==U.fMgr)&&(!U.fDes||o.des==U.fDes)&&(!U.fRv||(o.rv||'none')===U.fRv);
+  const q=prepQueue().filter(x=>pf(x.o)), rw=visibleOrders().filter(o=>o.reworkReq&&!o.rework&&pf(o));
   app.innerHTML=pageH('Препрес')+
-  `<div class="card flush"><div class="bar"><b>Макети на перевірку</b><span class="muted" style="font-size:13px">найстаріші зверху</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Чекає</th><th>Замовлення</th><th>Файл</th><th>Виконавець</th><th></th></tr></thead><tbody>
+  `<div class="card flush"><div class="bar fbar"><input class="inp" id="oq" placeholder="№ замовлення, клієнт" value="${esc(U.q)}" style="max-width:220px">${fSel('fDes','Усі дизайнери',desList().map(s=>[s.id,short(s.n)]))}${fSel('fMgr','Усі менеджери',mgrs().map(s=>[s.id,short(s.n)]))}${fSel('fRv','Перевірка: усі',Object.entries(RV).map(([k,v])=>[k,v[0]]))}${U.q||U.fDes||U.fMgr||U.fRv?'<button class="btn sm" data-act="fClear">Скинути</button>':''}</div></div>
+  <div class="card flush"><div class="bar"><b>Макети на перевірку</b><span class="muted" style="font-size:13px">найстаріші зверху</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Чекає</th><th>Замовлення</th><th>Файл</th><th>Дизайнер · статус</th><th>Менеджер</th><th></th></tr></thead><tbody>
    ${q.map(({o,f,i})=>`<tr><td><b>${ago(f.at||o.d)}</b></td><td><a data-go="order/${o.id}">№${o.id}</a><small>${esc(cl(o.c).n)} · ${CATS[o.cat].n}, ${o.w}×${o.h} мм, ${qName(o.qk)}</small></td><td>${esc(f.n)}</td>
-     <td>${o.who?short(staffN(o.who)):'<span class="free">вільне</span>'}</td>
-     <td class="r"><span class="btns" style="justify-content:flex-end"><button class="btn sm ok" data-act="fOk" data-id="${o.id}" data-v="${i}">Перевірено</button><button class="btn sm bad" data-act="fBad" data-id="${o.id}" data-v="${i}">Повернути</button></span></td></tr>`).join('')||'<tr><td colspan="5" class="none">Черга порожня</td></tr>'}</tbody></table></div></div>
+     <td>${o.des?short(staffN(o.des)):'<span class="free">не призначено</span>'}<small>${rvBadge(o.rv)}</small></td><td>${o.who?short(staffN(o.who)):'<span class="free">вільне</span>'}</td>
+     <td class="r"><span class="btns" style="justify-content:flex-end"><button class="btn sm ok" data-act="fOk" data-id="${o.id}" data-v="${i}">Перевірено</button><button class="btn sm bad" data-act="fBad" data-id="${o.id}" data-v="${i}">Повернути</button></span></td></tr>`).join('')||'<tr><td colspan="6" class="none">Черга порожня</td></tr>'}</tbody></table></div></div>
   <div class="card flush"><div class="bar"><b>Запити на доопрацювання</b><span class="muted" style="font-size:13px">треба виставити вартість</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Замовлення</th><th>Що просить клієнт</th><th>Вартість, грн</th></tr></thead><tbody>
    ${rw.map(o=>`<tr><td><a data-go="order/${o.id}">№${o.id}</a><small>${esc(cl(o.c).n)}</small></td><td>${esc((o.thread.filter(m=>m.from==='Клієнт').at(-1)||{}).t||'—')}</td>
-     <td><span class="btns"><input class="ed" id="rwP${o.id}" type="number" min="0" style="width:100px"><button class="btn sm pri" data-act="rwSet" data-id="${o.id}">Виставити</button></span></td></tr>`).join('')||'<tr><td colspan="3" class="none">Немає запитів</td></tr>'}</tbody></table></div></div>`;
+     <td>${can('rework')?`<span class="btns"><input class="ed" id="rwP${o.id}" type="number" min="0" style="width:100px"><button class="btn sm pri" data-act="rwSet" data-id="${o.id}">Виставити</button></span>`:'<span class="muted">менеджер або дизайнер</span>'}</td></tr>`).join('')||'<tr><td colspan="3" class="none">Немає запитів</td></tr>'}</tbody></table></div></div>`;
 }
 
 /* =====================================================================
    5. ЧЕРГА ВИРОБНИЦТВА
    ===================================================================== */
+const machN=id=>(CFG.machines.find(m=>m.id===id)||{n:'—'}).n;
+const layTxt=L=>L?(L.kind==='roll'?`рулон ${L.W*10} мм · ${fmt1(L.L/100)} м пог.`:`лист ${L.SW*10}×${L.SH*10} мм × ${L.n}`):'';
+function prodCols(jobs){
+  const noM=o=>o.st==='print'&&!CFG.machines.some(m=>m.id===o.mach);
+  return [['queue','Черга',o=>o.st==='paid'],...CFG.machines.map(m=>[m.id,m.n,o=>o.st==='print'&&o.mach===m.id]),
+    ...(jobs.some(noM)?[['nomach','У друці · машину не вказано',noM]]:[]),['done','Віддруковано',o=>o.st==='ready']];
+}
+function pcard(o,cols,col){
+  const L=lay(o);
+  return `<div class="kcard" draggable="true" data-drag="${o.id}"><div class="kc-h"><a data-go="order/${o.id}"><b>№${o.id}</b></a>${o.st!=='ready'&&dayKey(o.ready)<0?'<span class="badge b-red">прострочено</span>':`<span class="muted">до ${dstr(o.ready)}</span>`}</div>
+   <div class="kc-c">${esc(o.name)}</div><div class="muted">${o.w}×${o.h} мм · ${o.tir*o.kits} шт · ${qName(o.qk)}</div>${L?`<div class="muted">${layTxt(L)} · ${fmt1(L.printArea)} м²</div>`:''}
+   ${o.opts.length?`<div class="muted kc-o">${esc(o.opts.join(', '))}</div>`:''}${o.credit&&!isPaid(o)?'<div class="kc-b"><span class="badge b-red">без оплати</span></div>':''}
+   <div class="kc-a"><select class="sel" data-mv="${o.id}" aria-label="Перемістити №${o.id}">${cols.filter(c=>c[0]!=='nomach').map(c=>`<option value="${c[0]}" ${c[0]===col?'selected':''}>${esc(c[1])}</option>`).join('')}</select>
+    <button class="btn sm" data-act="printDoc" data-id="${o.id}">Замовлення на друк</button></div></div>`;
+}
 function pProduction(){
   if(!can('production')){ app.innerHTML=noAccess(); return; }
-  const jobs=ORD.filter(o=>['paid','print'].includes(o.st)).map(o=>({o,k:costOf(o)})).filter(j=>j.k);
-  const groups={};
-  for(const j of jobs){ const L=j.k.L, key=`${j.o.name} · ${L.kind==='roll'?'рулон '+L.W+' см':'лист '+L.SW+'×'+L.SH+' см'}`; (groups[key]=groups[key]||[]).push(j); }
-  app.innerHTML=pageH('Черга виробництва',`<span class="muted" style="font-size:13px;align-self:center">${jobs.length} замовлень · ${fmt1(jobs.reduce((a,j)=>a+j.k.L.printArea,0))} м² друку</span>`)+
-  (Object.keys(groups).length?Object.entries(groups).sort((a,b)=>Math.min(...a[1].map(j=>j.o.ready))-Math.min(...b[1].map(j=>j.o.ready))).map(([key,list])=>`
-   <div class="card grp"><div class="grp-h"><h2>${key}</h2><span class="muted" style="font-size:13px">${list.length} замовл. · друк ${fmt1(list.reduce((a,j)=>a+j.k.L.printArea,0))} м² · матеріалу ${fmt1(list.reduce((a,j)=>a+j.k.L.used,0))} м²${list[0].k.L.kind==='roll'?' · '+fmt1(list.reduce((a,j)=>a+j.k.L.L,0)/100)+' м пог.':''}</span></div>
-    ${list.sort((a,b)=>a.o.ready-b.o.ready).map(({o,k})=>`<div class="pjob"><div><a data-go="order/${o.id}"><b>№${o.id}</b></a> ${badge(o.st)} ${dayKey(o.ready)<0?'<span class="badge b-red">прострочено</span>':''}
-       <div class="muted" style="font-size:13px;margin-top:4px">${o.w}×${o.h} мм · ${o.tir} шт${o.kits>1?' ×'+o.kits:''} · ${qName(o.qk)} · готовність ${dstr(o.ready)} · ${o.opts.join(', ')||'без опцій'}</div></div>
-      <div class="btns">${o.st==='paid'?`<button class="btn sm pri" data-act="st" data-v="print" data-id="${o.id}">У друк</button>`:`<button class="btn sm ok" data-act="st" data-v="ready" data-id="${o.id}">Надруковано</button>`}</div>
-      <div class="lay-mini">${drawLayout(k.L)}</div></div>`).join('')}</div>`).join('')
-  :'<div class="card none">Немає оплачених замовлень до друку</div>')+
-  `<p class="foot-note">Групування за матеріалом і рулоном/листом.</p>`;
+  const jobs=ORD.filter(o=>['paid','print','ready'].includes(o.st)), cols=prodCols(jobs);
+  app.innerHTML=pageH('Виробництво',`<button class="btn ${U.combo?'pri':''}" data-act="combo">Спільна розкладка</button>`)+
+  `<div class="kb prod">${cols.map(([k,n,f])=>{ const l=jobs.filter(f).sort((a,b)=>a.ready-b.ready), area=l.reduce((a,o)=>{ const L=lay(o); return a+(L?L.printArea:0); },0);
+    return `<div class="kcol" data-drop="prod:${k}"><div class="kcol-h"><b>${esc(n)}</b><span>${l.length} · ${fmt1(area)} м²</span></div>${l.map(o=>pcard(o,cols,k)).join('')||'<div class="kempty">Порожньо</div>'}</div>`; }).join('')}</div>
+   <p class="foot-note">Перетягніть замовлення з «Черги» на машину — статус стане «У друці». Після друку — у «Віддруковано». Машини задаються в «Налаштування → CRM і виробництво».</p>`+
+  (U.combo?comboHtml():'');
+}
+// спільна розкладка кількох замовлень одного матеріалу для друкаря
+function comboHtml(){
+  const jobs=ORD.filter(o=>['paid','print'].includes(o.st)), g={};
+  for(const o of jobs){ (g[o.cat+'|'+o.name]=g[o.cat+'|'+o.name]||[]).push(o); }
+  return `<div class="page-h" style="margin-top:8px"><h1 style="font-size:19px">Спільна розкладка</h1><div class="acts"><label class="check" style="margin:0"><input type="checkbox" data-act="nmTgl" ${U.nm?'checked':''}>Без полів: стик у стик, поле тільки по контуру групи</label></div></div>`+
+  Object.values(g).map(l=>{ const o0=l[0], c=o0.cat==='stands'?CATS.banner:CATS[o0.cat], m=matOf(o0);
+    const sizes=l.flatMap(o=>{ const sz=(o.sizes&&o.sizes.length?o.sizes:[{w:o.w,h:o.h}]).map(z=>({w:z.w/10,h:z.h/10})); return Array.from({length:Math.min(o.tir*o.kits,400)},()=>sz).flat(); });
+    const L=layout(c,m,sizes,1,{nest:true,nm:!!U.nm}), sep=l.reduce((a,o)=>{ const x=lay(o); return a+(x?x.used:0); },0);
+    return `<div class="card"><div class="card-h"><h2>${esc(o0.name)}</h2><span class="muted" style="font-size:13px">${l.map(o=>`<a data-go="order/${o.id}">№${o.id}</a>`).join(', ')}</span></div>
+     ${L?`<div style="font-size:13px">Окремо: <b>${fmt1(sep)} м²</b> матеріалу · разом: <b>${fmt1(L.used)} м²</b> (${layTxt(L)}) · економія <b style="color:var(--ok)">${fmt1(Math.max(0,sep-L.used))} м²</b></div><div class="lay-mini">${drawLayout(L)}</div>`:'<span class="muted">Не вдалося розкласти — завеликий тираж або виріб ширший за рулон.</span>'}</div>`; }).join('')||'<div class="card none">Немає замовлень у черзі й у друці</div>';
+}
+function moveProd(o,k){
+  const was=o.st;
+  if(k==='queue'){ if(o.st==='paid') return; o.st='paid'; o.mach=null; logO(o,'повернено в чергу друку'); }
+  else if(k==='done'){ if(o.st==='paid'){ toast('Спочатку перенесіть замовлення на машину.'); return; } if(o.st==='print') setStatus(o,'ready'); }
+  else { const m=CFG.machines.find(x=>x.id===k); if(!m) return;
+    if(o.st==='paid') setStatus(o,'print'); else if(o.st==='ready'){ o.st='print'; logO(o,'повернено в друк'); }
+    if(o.mach!==k){ o.mach=k; logO(o,`машина: ${m.n}`); } }
+  if(was!==o.st||k!=='done'){ persist(); rr(); }
+}
+// документ «Замовлення на друк» (формат уточнюється за фото-референсом замовника)
+function printDoc(o){
+  const L=lay(o), m=matOf(o), sz=(o.sizes&&o.sizes.length?o.sizes:[{w:o.w,h:o.h}]);
+  const w=window.open('','_blank'); if(!w){ toast('Дозвольте спливаючі вікна, щоб відкрити документ.'); return; }
+  const row=(k,v)=>`<tr><th>${k}</th><td>${v}</td></tr>`;
+  w.document.write(`<!doctype html><html lang="uk"><head><meta charset="utf-8"><title>Замовлення на друк №${o.id}</title><style>
+   :root{--waste:#fde68a;--waste-line:#d97706;--print:#93c5fd;--margin:#e5e7eb;--card:#fff;--muted:#6b7280;--bad:#dc2626}
+   body{font:14px/1.45 Inter,system-ui,sans-serif;color:#111;margin:24px;max-width:900px}h1{font-size:22px;margin:0 0 4px}.sub{color:#6b7280;margin:0 0 16px}
+   table{border-collapse:collapse;width:100%;margin-bottom:16px}th,td{border:1px solid #d1d5db;padding:7px 10px;text-align:left;vertical-align:top}th{width:220px;background:#f3f4f6;font-weight:600}
+   .sign{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:28px}.sign div{border-top:1px solid #111;padding-top:4px;color:#6b7280;font-size:12px}
+   @media print{button{display:none}body{margin:10mm}}</style></head><body>
+   <button onclick="print()" style="float:right;padding:8px 14px">Друкувати</button><h1>Замовлення на друк № ${o.id}</h1><p class="sub">Сформовано ${dstr(NOW)} ${tstr(NOW)} · ${esc(ME().n)}</p><table>
+   ${row('Машина',esc(machN(o.mach)))}${row('Матеріал',esc(m.t||m.n))}${row('Якість друку',esc(qName(o.qk)))}
+   ${row('Розмір виробу, мм',sz.map(z=>z.w+' × '+z.h).join('<br>'))}${row('Кількість',`${o.tir} шт${o.kits>1?` × ${o.kits} комплекти = ${o.tir*o.kits} шт`:''}`)}
+   ${row('Ширина рулону / лист',L?layTxt(L):'—')}${row('Площа друку',L?fmt1(L.printArea)+' м² · матеріалу '+fmt1(L.used)+' м²':'—')}${row('Поле під друк',L&&L.m!=null?L.m*10+' мм з кожного боку':'—')}
+   ${row('Постобробка',o.opts.length?o.opts.map(esc).join('<br>'):'—')}${row('Файли макетів',o.files.filter(f=>f.st==='ok').map(f=>esc(f.n)).join('<br>')||'—')}
+   ${row('Термін готовності',`${dstr(o.ready)} · ${esc(o.term)}`)}${row('Доставка',o.deliv==='self'?'Самовивіз':'Нова Пошта')}${row('Коментар',esc(o.comment||'')||'—')}</table>
+   ${L?`<h3 style="margin:0 0 8px">Розкладка</h3>${drawLayout(L)}`:''}
+   <div class="sign"><div>Друкар (ПІБ, підпис)</div><div>Дата і час друку</div></div></body></html>`);
+  w.document.close(); logO(o,'сформовано «Замовлення на друк»');
 }
 
 /* =====================================================================
@@ -443,29 +577,33 @@ function pClients(){
   if(!can('clients')){ app.innerHTML=noAccess(); return; }
   const q=U.q.trim().toLowerCase();
   const list=CL.filter(c=>!q||c.n.toLowerCase().includes(q)||String(c.id).includes(q)||c.ph.replace(/\s/g,'').includes(q.replace(/\s/g,''))||c.co.toLowerCase().includes(q));
-  app.innerHTML=pageH('Клієнти')+`<div class="card flush"><div class="bar"><input class="inp" id="cq" placeholder="Ім’я, №, телефон, компанія" value="${esc(U.q)}" style="max-width:300px"></div>
-   <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Клієнт</th><th>Контакти</th><th>Рівень</th><th class="r">Баланс</th><th class="r">Замовлень</th><th class="r">Сума замовлень</th></tr></thead><tbody>
-   ${list.map(c=>{ const os=ORD.filter(o=>o.c===c.id&&o.st!=='cancel'), g=`data-go="client/${c.id}"`;
+  app.innerHTML=pageH('Клієнти',can('behalf')?'<button class="btn pri" data-act="addClient">+ Клієнт</button>':'')+`<div class="card flush"><div class="bar"><input class="inp" id="cq" placeholder="Ім’я, №, телефон, компанія" value="${esc(U.q)}" style="max-width:300px"></div>
+   <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Клієнт</th><th>Контакти</th><th>Категорія</th><th>Рівень</th><th class="r">Баланс</th><th class="r">Борг</th><th class="r">Замовлень</th><th class="r">Сума замовлень</th></tr></thead><tbody>
+   ${list.map(c=>{ const os=ORD.filter(o=>o.c===c.id&&o.st!=='cancel'), g=`data-go="client/${c.id}"`, dbt=debtsOf(c.id).reduce((a,o)=>a+due(o),0);
      return `<tr class="row"><td ${g}><b>${esc(c.n)}</b><small>№${c.id}${c.co?' · '+esc(c.co):''}</small></td><td ${g}>${c.ph}<small>${c.em}</small></td>
-      <td ${g}>${CFG.levels.find(l=>l.id===c.level).name}</td><td ${g} class="r">${fmt(bal(c.id))}</td><td ${g} class="r">${os.length}</td><td ${g} class="r">${fmt(os.reduce((a,o)=>a+o.sum+o.rework,0))}</td></tr>`; }).join('')}</tbody></table></div></div>`;
+      <td ${g}>${esc(ccatOf(c).n)}${c.catReq&&c.catReq!==c.cat?`<small><span class="badge b-amber">заявка: ${esc((CFG.ccats.find(x=>x.id===c.catReq)||{n:''}).n)}</span></small>`:''}</td>
+      <td ${g}>${(CFG.levels.find(l=>l.id===c.level)||CFG.levels[0]).name}</td><td ${g} class="r">${fmt(bal(c.id))}</td><td ${g} class="r">${dbt?`<b style="color:var(--bad)">${fmt(dbt)}</b>`:'—'}</td><td ${g} class="r">${os.length}</td><td ${g} class="r">${fmt(os.reduce((a,o)=>a+oTotal(o),0))}</td></tr>`; }).join('')}</tbody></table></div></div>`;
 }
 function pClient(id){
   if(!can('clients')){ app.innerHTML=noAccess(); return; }
   const c=cl(+id); if(!c){ app.innerHTML=pageH('Клієнта не знайдено'); return; }
   const os=ORD.filter(o=>o.c===c.id); let run=0; const led=LEDGER.filter(x=>x.c===c.id).sort((a,b)=>a.d-b.d).map(x=>({...x,after:(run+=x.s)})).reverse();
   app.innerHTML=`<div class="crumbs"><a data-go="clients">Клієнти</a><span>/</span>№${c.id}</div>`+pageH(`${esc(c.n)} <span class="badge b-indigo">№${c.id}</span>`,
-    (can('money')?`<button class="btn" data-act="adj" data-id="${c.id}">Коригування балансу</button>`:'')+`<button class="btn bad" data-act="delClient" data-id="${c.id}">Видалити клієнта</button>`)+
-  `<div class="stats"><div class="stat"><div class="k">Баланс</div><div class="v">${fmt(bal(c.id))} <small>грн</small></div></div>
+    (can('behalf')?`<button class="btn pri" data-act="behalf" data-id="${c.id}">Нове замовлення від імені клієнта</button>`:'')+(can('pay')?`<button class="btn" data-act="adj" data-id="${c.id}">Коригування балансу</button>`:'')+`<button class="btn bad" data-act="delClient" data-id="${c.id}">Видалити клієнта</button>`)+
+  (()=>{ const ds=debtsOf(c.id); return ds.length?`<div class="alert"><b>Борг клієнта: ${fmt(ds.reduce((a,o)=>a+due(o),0))} грн</b>${ds.map(o=>`<a data-go="order/${o.id}">№${o.id}</a> — ${fmt(due(o))} грн, дата оплати ${dstr(o.credit.date)}${dayKey(o.credit.date)<0?' (прострочено)':''}`).join('<br>')}</div>`:''; })()+
+  (c.catReq&&c.catReq!==c.cat?`<div class="alert info"><b>Заявка на категорію «${esc((CFG.ccats.find(x=>x.id===c.catReq)||{n:''}).n)}»</b>${esc(c.reqInfo||'')}<div class="btns" style="margin-top:8px"><button class="btn sm pri" data-act="catOk" data-id="${c.id}">Підтвердити</button><button class="btn sm" data-act="catNo" data-id="${c.id}">Відхилити</button></div></div>`:'')+
+  `<div class="stats four"><div class="stat"><div class="k">Баланс</div><div class="v">${fmt(bal(c.id))} <small>грн</small></div><div class="s">борг ${fmt(debtsOf(c.id).reduce((a,o)=>a+due(o),0))} грн</div></div>
+    <div class="stat"><div class="k">Категорія (ціни)</div><select class="sel" id="ccSel" data-id="${c.id}" style="margin-top:8px">${CFG.ccats.map(x=>`<option value="${x.id}" ${x.id===ccatOf(c).id?'selected':''}>${esc(x.n)} · ${Math.round(x.k*100)}% прайсу</option>`).join('')}</select><div class="s" style="margin-top:6px">Ціни калькулятора для клієнта</div></div>
     <div class="stat"><div class="k">Замовлень</div><div class="v">${os.filter(o=>o.st!=='cancel').length}</div><div class="s">з ${dstr(c.since)}</div></div>
     <div class="stat"><div class="k">Рівень</div>${can('levels')?`<select class="sel" id="lvl" data-id="${c.id}" style="margin-top:8px">${CFG.levels.map(l=>`<option value="${l.id}" ${l.id===c.level?'selected':''}>${l.name}${l.d?' −'+l.d*100+'%':''}</option>`).join('')}</select><div class="s" style="margin-top:6px">Призначає тільки адмін / власник</div>`
       :`<div class="v" style="font-size:22px">${CFG.levels.find(l=>l.id===c.level).name}</div><div class="s">Змінює адмін або власник</div>`}</div></div>
   <div class="cols"><div>
    <div class="card flush"><div class="bar"><b>Замовлення</b></div><div class="tbl-wrap"><table class="tbl compact"><thead><tr><th>№</th><th>Продукт</th><th>Статус</th><th class="r">Сума</th><th class="r">До сплати</th></tr></thead><tbody>
-    ${os.map(o=>`<tr class="row" data-go="order/${o.id}"><td><b>${o.id}</b><small>${dstr(o.d)}</small></td><td>${CATS[o.cat].n}<small>${o.name}</small></td><td>${badge(o.st)}</td><td class="r">${fmt(o.sum+o.rework)}</td><td class="r">${o.st==='cancel'?'—':fmt(due(o))}</td></tr>`).join('')}</tbody></table></div></div>
+    ${os.map(o=>`<tr class="row" data-go="order/${o.id}"><td><b>${o.id}</b><small>${dstr(o.d)}</small></td><td>${CATS[o.cat].n}<small>${o.name}</small></td><td>${badge(o.st)}</td><td class="r">${fmt(oTotal(o))}</td><td class="r">${o.st==='cancel'?'—':isDebt(o)?`<b style="color:var(--bad)">${fmt(due(o))}</b><small>до ${dstr(o.credit.date)}</small>`:fmt(due(o))}</td></tr>`).join('')}</tbody></table></div></div>
    ${can('money')?`<div class="card flush"><div class="bar"><b>Рух коштів</b></div><div class="tbl-wrap"><table class="tbl compact"><thead><tr><th>Дата</th><th>Операція</th><th class="r">Сума</th><th class="r">Баланс</th></tr></thead><tbody>
     ${led.map(x=>`<tr><td>${dstr(x.d)}</td><td>${esc(x.t)}</td><td class="r ${x.s>0?'plus':''}">${x.s>0?'+':'−'}${fmt(Math.abs(x.s))}</td><td class="r">${fmt(x.after)}</td></tr>`).join('')}</tbody></table></div></div>`:''}
   </div><div class="card"><div class="card-h"><h2>Дані</h2></div><dl class="kv2" style="grid-template-columns:90px minmax(0,1fr)">
-    <dt>Телефон</dt><dd>${c.ph}</dd><dt>Email</dt><dd>${c.em}</dd><dt>Тип</dt><dd>${{person:'Фізична особа',fop:'ФОП',company:'Юридична особа'}[c.type]}</dd>${c.co?`<dt>Реквізити</dt><dd>${esc(c.co)}</dd>`:''}<dt>З нами з</dt><dd>${dstr(c.since)}</dd></dl></div></div>`;
+    <dt>Телефон</dt><dd>${c.ph}</dd><dt>Email</dt><dd>${c.em}</dd><dt>Тип</dt><dd>${{person:'Фізична особа',fop:'ФОП',company:'Юридична особа'}[c.type]||'—'}</dd>${c.by?`<dt>Створив</dt><dd>${esc(staffN(c.by))}</dd>`:''}${c.edrpou?`<dt>ЄДРПОУ</dt><dd>${esc(c.edrpou)}</dd>`:''}${c.co?`<dt>Реквізити</dt><dd>${esc(c.co)}</dd>`:''}<dt>З нами з</dt><dd>${dstr(c.since)}</dd></dl></div></div>`;
 }
 
 /* =====================================================================
@@ -473,15 +611,16 @@ function pClient(id){
    ===================================================================== */
 function pMoney(){
   if(!can('money')){ app.innerHTML=noAccess(); return; }
-  const unpaid=ORD.filter(o=>o.st!=='cancel'&&!isPaid(o));
-  app.innerHTML=pageH('Рахунки й оплати')+
+  const unpaid=ORD.filter(o=>o.st!=='cancel'&&!isPaid(o)).sort((a,b)=>(b.credit?1:0)-(a.credit?1:0)||(a.credit&&b.credit?a.credit.date-b.credit.date:0)), P=can('pay'), rem=reminders();
+  app.innerHTML=pageH('Рахунки й оплати',P?'':'<span class="muted" style="font-size:13px;align-self:center">Статус оплати змінює тільки бухгалтер</span>')+
+  (rem.length?`<div class="alert"><b>Нагадування: ${rem.length} оплат(и) на ${fmt(rem.reduce((a,x)=>a+due(x.o),0))} грн</b>${rem.map(({o,d})=>`<a data-go="order/${o.id}">№${o.id}</a> ${esc(cl(o.c).n)} — ${fmt(due(o))} грн, ${dstr(o.credit.date)} ${remTxt(d)}`).join('<br>')}</div>`:'')+
   `<div class="card flush"><div class="bar"><b>Рахунки</b></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Рахунок</th><th>Клієнт</th><th>За що</th><th>Статус</th><th class="r">Сума</th><th></th></tr></thead><tbody>
    ${INV.map((v,i)=>`<tr><td><b>${v.n}</b><small>${dstr(v.d)}</small></td><td>${esc(cl(v.c).n)}<small>№${v.c}</small></td><td>${v.o.length?v.o.map(id=>`<a data-go="order/${id}">№${id}</a>`).join(', '):esc(v.t)}</td>
-     <td>${v.paid?'<span class="badge b-green">Оплачено</span>':'<span class="badge b-amber">Очікує оплати</span>'}</td><td class="r">${fmt(v.s)}</td>
-     <td class="r"><span class="btns" style="justify-content:flex-end">${v.paid?'':`<button class="btn sm ok" data-act="invPaid" data-v="${i}">Оплату отримано</button>`}${v.paid?'<button class="xb" disabled title="Оплачений рахунок видалити не можна">✕</button>':delBtn('delInv',`data-v="${i}"`,'Видалити рахунок')}</span></td></tr>`).join('')}</tbody></table></div></div>
-  <div class="card flush"><div class="bar"><b>Неоплачені замовлення</b><span class="muted" style="font-size:13px">разом ${fmt(unpaid.reduce((a,o)=>a+due(o),0))} грн</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Замовлення</th><th>Клієнт</th><th>Статус</th><th class="r">Баланс клієнта</th><th class="r">До сплати</th><th></th></tr></thead><tbody>
-   ${unpaid.map(o=>`<tr><td><a data-go="order/${o.id}">№${o.id}</a><small>${CATS[o.cat].n}</small></td><td>${esc(cl(o.c).n)}</td><td>${badge(o.st)}</td><td class="r">${fmt(bal(o.c))}</td><td class="r"><b>${fmt(due(o))}</b></td>
-     <td class="r"><span class="btns" style="justify-content:flex-end"><button class="btn sm" data-act="payBal" data-id="${o.id}" ${bal(o.c)<due(o)?'disabled title="Недостатньо на балансі"':''}>З балансу</button>${INV.some(v=>v.o.includes(o.id))?'':`<button class="btn sm" data-act="mkInv" data-id="${o.id}">Рахунок</button>`}</span></td></tr>`).join('')||'<tr><td colspan="6" class="none">Усе оплачено</td></tr>'}</tbody></table></div></div>
+     <td>${v.paid?'<span class="badge b-green">Оплачено</span>':'<span class="badge b-amber">Очікує оплати</span>'}${v.sent&&v.sent.length?`<small>надіслано: ${v.sent.map(x=>x.ch).join(', ')}</small>`:''}</td><td class="r">${fmt(v.s)}</td>
+     <td class="r"><span class="btns" style="justify-content:flex-end">${v.paid?'':`<button class="btn sm" data-act="sendInv" data-v="${i}">Надіслати</button>`}${v.paid||!P?'':`<button class="btn sm ok" data-act="invPaid" data-v="${i}">Оплату отримано</button>`}${v.paid?'<button class="xb" disabled title="Оплачений рахунок видалити не можна">✕</button>':delBtn('delInv',`data-v="${i}"`,'Видалити рахунок')}</span></td></tr>`).join('')}</tbody></table></div></div>
+  <div class="card flush"><div class="bar"><b>Неоплачені замовлення</b><span class="muted" style="font-size:13px">разом ${fmt(unpaid.reduce((a,o)=>a+due(o),0))} грн</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Замовлення</th><th>Клієнт</th><th>Статус</th><th>Оплата</th><th class="r">Баланс клієнта</th><th class="r">До сплати</th><th></th></tr></thead><tbody>
+   ${unpaid.map(o=>`<tr><td><a data-go="order/${o.id}">№${o.id}</a><small>${CATS[o.cat].n}</small></td><td>${esc(cl(o.c).n)}</td><td>${badge(o.st)}</td><td>${payBadge(o)}</td><td class="r">${fmt(bal(o.c))}</td><td class="r"><b>${fmt(due(o))}</b>${o.dlv?`<small>у т.ч. доставка ${fmt(o.dlv)}</small>`:''}</td>
+     <td class="r"><span class="btns" style="justify-content:flex-end">${P?`<button class="btn sm ok" data-act="markPaid" data-id="${o.id}">Оплачено</button><button class="btn sm" data-act="payBal" data-id="${o.id}" ${bal(o.c)<due(o)?'disabled title="Недостатньо на балансі"':''}>З балансу</button>`:''}${INV.some(v=>v.o.includes(o.id))?'':`<button class="btn sm" data-act="mkInv" data-id="${o.id}">Рахунок</button>`}</span></td></tr>`).join('')||'<tr><td colspan="7" class="none">Усе оплачено</td></tr>'}</tbody></table></div></div>
   <p class="foot-note">Онлайн-оплати карткою (LiqPay / Monobank) зараховуються автоматично — у робочій версії. PDF рахунків і актів — теж там.</p>`;
 }
 
@@ -549,10 +688,10 @@ function sMats(){
     <input class="inp" data-s="mt" data-i="${i}" value="${esc(m.t||'')}" placeholder="Опис для клієнта (інфо «Матеріали»)" style="flex:2 1 220px;min-width:0">
     <label class="check" style="white-space:nowrap"><input type="checkbox" data-s="mna" data-i="${i}" ${m.na?'':'checked'}>В наявності</label>${delBtn('sDelMat',`data-i="${i}"`,'Видалити матеріал')}</div>
    <div class="mat-g">
-    <div><div class="lbl">${sheet?'Розмір листа, см':'Ширини рулонів, см'}</div>${sheet
-      ?`<div class="rolls"><input class="ed w" type="number" data-s="msw" data-i="${i}" value="${m.sheet[0]}"><span class="muted">×</span><input class="ed w" type="number" data-s="msh" data-i="${i}" value="${m.sheet[1]}"></div>`
-      :`<div class="rolls">${m.rolls.map((r,j)=>`<span class="roll"><input class="ed w" type="number" data-s="mroll" data-i="${i}" data-j="${j}" value="${r}">${m.rolls.length>1?delBtn('sDelRoll',`data-i="${i}" data-j="${j}"`,'Прибрати ширину'):''}</span>`).join('')}<button class="btn sm" data-act="sAddRoll" data-i="${i}">+ ширина</button></div>`}</div>
-    <div><div class="lbl">Поле під друк, см <span class="hint" title="Зазор навколо кожного виробу з кожного боку. Входить у використаний матеріал (обрізок). Порожньо — загальне значення з вкладки «Обрізок і поля».">?</span></div><input class="ed" type="number" step="0.5" data-s="mmargin" data-i="${i}" value="${m.margin??''}" placeholder="загальне: ${def}"></div>
+    <div><div class="lbl">${sheet?'Розмір листа, мм':'Ширини рулонів, мм'}</div>${sheet
+      ?`<div class="rolls"><input class="ed w" type="number" data-s="msw" data-i="${i}" value="${m.sheet[0]*10}"><span class="muted">×</span><input class="ed w" type="number" data-s="msh" data-i="${i}" value="${m.sheet[1]*10}"></div>`
+      :`<div class="rolls">${m.rolls.map((r,j)=>`<span class="roll"><input class="ed w" type="number" data-s="mroll" data-i="${i}" data-j="${j}" value="${r*10}">${m.rolls.length>1?delBtn('sDelRoll',`data-i="${i}" data-j="${j}"`,'Прибрати ширину'):''}</span>`).join('')}<button class="btn sm" data-act="sAddRoll" data-i="${i}">+ ширина</button></div>`}</div>
+    <div><div class="lbl">Поле під друк, мм <span class="hint" title="Зазор навколо кожного виробу з кожного боку. Входить у використаний матеріал (обрізок). Порожньо — загальне значення з вкладки «Обрізок і поля».">?</span></div><input class="ed" type="number" step="5" data-s="mmargin" data-i="${i}" value="${m.margin!=null?m.margin*10:''}" placeholder="загальне: ${def*10}"></div>
     <div><div class="lbl">Собівартість, грн/м² <span class="hint" title="Скільки коштує 1 м² матеріалу без друку. Від неї рахується обрізок і маржа.">?</span></div><input class="ed" type="number" data-s="mcost" data-i="${i}" value="${m.cost}"></div>
     <div><div class="lbl">Ціна відходу, грн/м² <span class="hint" title="Скільки клієнт платить за 1 м² матеріалу, що пішов у відхід (ширина рулону мінус виріб).">?</span></div><input class="ed" type="number" step="0.5" data-s="mwaste" data-i="${i}" value="${m.waste??''}" placeholder="собівартість + націнка"></div>
    </div>
@@ -609,12 +748,12 @@ function sGeneral(){
   CFG.pvhCut=CFG.pvhCut||{base:1.98,perMm:0.66};
   const row=(l,s,v,hint,step=1)=>`<label>${l}${hint?` <span class="hint" title="${hint}">?</span>`:''}</label><input class="ed" type="number" step="${step}" data-s="${s}" value="${v}">`;
   return `<div class="card" style="max-width:720px"><div class="dset" style="grid-template-columns:1fr 120px">
-   ${row('Запас по довжині рулону на кожен виріб, см','glenAdd',CFG.lenAdd,'Додається до довжини кожного виробу: 8 см = 0,08 м, як у робочій таблиці.')}
+   ${row('Запас по довжині рулону на кожен виріб, мм','glenAdd',CFG.lenAdd*10,'Додається до довжини кожного виробу: 80 мм = 0,08 м, як у робочій таблиці.')}
    ${row('Пропайка швів при друці частинами, грн/м пог.','gseam',CFG.seam??80,'Для виробів, ширших за рулон.')}
    ${row('Націнка на відхід, % (якщо в матеріалу не задано ціну відходу)','gmarkup',CFG.markup*100,'Відхід = собівартість матеріалу плюс ця націнка.')}
-   ${row('Поле під друк для рулонів, см з кожного боку','gmarginRoll',CFG.marginRoll,'Зазор навколо кожного виробу на рулоні. Можна змінити для окремого матеріалу.',0.5)}
-   ${row('Поле під друк для листів, см з кожного боку','gmarginSheet',CFG.marginSheet,'Те саме для листових матеріалів.',0.5)}
-   ${row('Залишок листа вважається діловим від, см','gleftoverMin',CFG.leftoverMin,'Якщо смуга, що лишилась від листа, ширша — рахуємо тільки використану частину; вужча — весь лист.')}
+   ${row('Поле під друк для рулонів, мм з кожного боку','gmarginRoll',CFG.marginRoll*10,'Зазор навколо кожного виробу на рулоні. Можна змінити для окремого матеріалу.',0.5)}
+   ${row('Поле під друк для листів, мм з кожного боку','gmarginSheet',CFG.marginSheet*10,'Те саме для листових матеріалів.',5)}
+   ${row('Залишок листа вважається діловим від, мм','gleftoverMin',CFG.leftoverMin*10,'Якщо смуга, що лишилась від листа, ширша — рахуємо тільки використану частину; вужча — весь лист.')}
    ${row('Порізка ПВХ: базовий тариф, грн/м пог.','gpvhBase',CFG.pvhCut.base,'Для ПВХ 1 мм.',0.01)}
    ${row('Порізка ПВХ: + за кожен мм товщини, грн/м пог.','gpvhMm',CFG.pvhCut.perMm,'',0.01)}</div>
    <label class="check" style="margin-top:6px"><input type="checkbox" data-s="gnest" ${CFG.nest?'checked':''}>Розкладати тираж поруч по ширині рулону (менше відходу). Вимкнено — кожен виріб займає всю ширину рулону, як у робочій таблиці.</label></div>`;
@@ -625,7 +764,27 @@ function sLevels(){
   return `<div class="card flush" style="max-width:720px"><table class="tbl compact" style="min-width:0"><thead><tr><th>Рівень</th><th>Знижка, %</th><th class="r">Клієнтів</th><th></th></tr></thead><tbody>
    ${CFG.levels.map((l,i)=>{ const n=CL.filter(c=>c.level===l.id).length; return `<tr><td class="e"><input class="ed" data-s="ln" data-i="${i}" value="${esc(l.name)}"></td><td class="e"><input class="ed" type="number" data-s="ld" data-i="${i}" value="${l.d*100}"></td><td class="r">${n}</td>
     <td class="e">${CFG.levels.length>1?delBtn('sDelLvl',`data-i="${i}"`,'Видалити рівень'):'<button class="xb" disabled title="Має лишитися хоча б один рівень">✕</button>'}</td></tr>`; }).join('')}</tbody></table>
-   <div class="bar" style="border-top:1px solid var(--line);border-bottom:0"><button class="btn sm" data-act="sAddLvl">+ Рівень</button><span class="muted" style="font-size:12.5px">Перший рівень у списку — для нових клієнтів. Рівень клієнту призначають у його картці.</span></div></div>`;
+   <div class="bar" style="border-top:1px solid var(--line);border-bottom:0"><button class="btn sm" data-act="sAddLvl">+ Рівень</button><span class="muted" style="font-size:12.5px">Перший рівень у списку — для нових клієнтів. Рівень клієнту призначають у його картці.</span></div></div>
+  <div class="card flush" style="max-width:720px"><div class="bar"><b>Категорії клієнтів — окремі ціни</b></div><table class="tbl compact" style="min-width:0"><thead><tr><th>Категорія</th><th>Ціна, % від прайсу</th><th class="r">Клієнтів</th><th></th></tr></thead><tbody>
+   ${CFG.ccats.map((x,i)=>`<tr><td class="e"><input class="ed" data-s="ccn" data-i="${i}" value="${esc(x.n)}"></td><td class="e"><input class="ed" type="number" step="1" min="1" data-s="cck" data-i="${i}" value="${Math.round(x.k*100)}"></td><td class="r">${CL.filter(c=>ccatOf(c).id===x.id).length}</td>
+    <td class="e">${i?delBtn('sDelCc',`data-i="${i}"`,'Видалити категорію'):'<button class="xb" disabled title="Базова категорія для нових клієнтів">✕</button>'}</td></tr>`).join('')}</tbody></table>
+   <div class="bar" style="border-top:1px solid var(--line);border-bottom:0"><button class="btn sm" data-act="sAddCc">+ Категорія</button><span class="muted" style="font-size:12.5px">Перша — для нових клієнтів. Агентства й оптовики подають заявку при реєстрації, категорію підтверджує менеджер.</span></div></div>`;
+}
+function sCrm(){
+  const R=CFG.remind;
+  return `<div class="card flush" style="max-width:720px"><div class="bar"><b>Друкарські машини</b><span class="muted" style="font-size:12.5px">кожна машина — колонка на виробничій дошці</span></div><table class="tbl compact" style="min-width:0"><tbody>
+   ${CFG.machines.map((m,i)=>`<tr><td class="e"><input class="ed" data-s="machN" data-i="${i}" value="${esc(m.n)}"></td><td class="r">${ORD.filter(o=>o.mach===m.id&&o.st==='print').length} у друці</td><td class="e">${CFG.machines.length>1?delBtn('sDelMach',`data-i="${i}"`,'Видалити машину'):'<button class="xb" disabled title="Має лишитися хоча б одна машина">✕</button>'}</td></tr>`).join('')}</tbody></table>
+   <div class="bar" style="border-top:1px solid var(--line);border-bottom:0"><button class="btn sm" data-act="sAddMach">+ Машина</button></div></div>
+  <div class="card" style="max-width:720px"><div class="card-h"><h2>Нагадування про оплату</h2></div><div style="display:grid;gap:8px">
+   <label class="check"><input type="checkbox" data-s="rOn" ${R.on?'checked':''}>Нагадування увімкнено</label>
+   <label class="check"><input type="checkbox" data-s="rDay" ${R.onDay?'checked':''}>У день оплати</label>
+   <label class="check"><input type="checkbox" data-s="rOver" ${R.overdue?'checked':''}>Про прострочені оплати (щодня, доки не оплачено)</label>
+   <div class="dset" style="grid-template-columns:1fr 120px"><label>Нагадувати заздалегідь, за скільки днів</label><input class="ed" type="number" min="0" data-s="rEvery" value="${R.every}"></div></div>
+   <p class="muted" style="font-size:12.5px;margin:10px 0 0">Нагадування бачать менеджер замовлення, бухгалтер і власник — на дашборді й у «Рахунках». У робочій версії — також у Telegram або на email.</p></div>
+  <div class="card" style="max-width:720px"><div class="card-h"><h2>Ширина друку</h2></div><div class="dset" style="grid-template-columns:1fr 120px">
+   ${Object.keys(CFG.printMax).map(k=>`<label>${plain(Q[k]?Q[k].n:k)} — максимальна ширина друку, мм</label><input class="ed" type="number" min="0" data-s="pmax" data-k="${k}" value="${CFG.printMax[k]}">`).join('')}
+   <label>Нахльост при поділі на частини, мм</label><input class="ed" type="number" min="0" data-s="govl" value="${CFG.overlap}"></div>
+   <p class="muted" style="font-size:12.5px;margin:10px 0 0">Ширший виріб калькулятор пропонує розділити на частини з нахльостом (плівка, папір) або зі спайкою (банер).</p></div>`;
 }
 
 function sTexts(){
@@ -651,7 +810,7 @@ function sBrand(){
 function pSettings(){
   if(!can('settings')){ app.innerHTML=noAccess(); return; }
   const tabs=STABS.filter(t=>t[0]!=='levels'||can('levels'));
-  const body={cats:sCats,mats:sMats,q:sQ,opts:sOpts,terms:sTerms,general:sGeneral,levels:sLevels,texts:sTexts,brand:sBrand}[U.stab]();
+  const body={cats:sCats,mats:sMats,q:sQ,opts:sOpts,terms:sTerms,general:sGeneral,levels:sLevels,crm:sCrm,texts:sTexts,brand:sBrand}[U.stab]();
   app.innerHTML=pageH('Налаштування',`<span class="muted" style="font-size:12.5px;align-self:center">Зміни діють одразу і одразу видно на сайті</span>`)+
     `<div class="seg">${tabs.map(([k,n])=>`<a class="${U.stab===k?'on':''}" data-act="stab" data-v="${k}">${n}</a>`).join('')}</div>`+body;
 }
@@ -693,6 +852,10 @@ function settingsClick(a){
     case 'sDelTerm': TERMS[d.g].splice(i,1); break;
     case 'sAddVol': CFG.volume.push({q:(CFG.volume.at(-1).q||1)*2,d:0}); break;
     case 'sDelVol': CFG.volume.splice(i,1); break;
+    case 'sAddMach': CFG.machines.push({id:'m'+Date.now().toString(36),n:'Нова машина'}); break;
+    case 'sDelMach': { const m=CFG.machines[i], n=ORD.filter(o=>o.mach===m.id&&o.st==='print').length; return ask(`Видалити машину «${m.n}»?${n?` ${n} замовл. у друці повернуться в чергу.`:''}`,()=>{ ORD.forEach(o=>{ if(o.mach===m.id&&o.st==='print'){ o.st='paid'; o.mach=null; } }); CFG.machines.splice(i,1); }); }
+    case 'sAddCc': CFG.ccats.push({id:'cc'+Date.now().toString(36),n:'Нова категорія',k:1}); break;
+    case 'sDelCc': { const x=CFG.ccats[i], n=CL.filter(c=>c.cat===x.id).length; return ask(`Видалити категорію «${x.n}»?${n?` ${n} клієнт(ів) перейдуть у «${CFG.ccats[0].n}».`:''}`,()=>{ CL.forEach(c=>{ if(c.cat===x.id) c.cat=CFG.ccats[0].id; }); CFG.ccats.splice(i,1); }); }
     case 'sAddLvl': CFG.levels.push({id:'l'+Date.now().toString(36),name:'Новий рівень',d:0}); break;
     case 'sDelLvl': { const l=CFG.levels[i], rest=CFG.levels.filter((x,k)=>k!==i), n=CL.filter(c=>c.level===l.id).length;
       return ask(`Видалити рівень «${l.name}»?${n?` ${n} клієнт(ів) буде переведено на «${rest[0].name}».`:''}`,()=>{ CL.forEach(c=>{ if(c.level===l.id) c.level=rest[0].id; }); CFG.levels.splice(i,1); }); }
@@ -716,12 +879,12 @@ function settingsChange(t){
     case 'szw': sizes()[i][0]=n; break; case 'szh': sizes()[i][1]=n; break; case 'szp': sizes()[i][2]=n; break;
     case 'szn': { const r=sizes()[i]; if(c.kind==='stand') r[3]=v; else r[2]=v; break; }
     case 'mn': m.n=v; break; case 'mt': m.t=v; break; case 'mna': m.na=t.checked?0:1; redraw=true; break;
-    case 'mroll': if(n>0) m.rolls[j]=n; break; case 'msw': if(n>0) m.sheet[0]=n; break; case 'msh': if(n>0) m.sheet[1]=n; break;
-    case 'mmargin': if(v==='') delete m.margin; else m.margin=n; break; case 'mcost': m.cost=n||0; break;
+    case 'mroll': if(n>0) m.rolls[j]=n/10; break; case 'msw': if(n>0) m.sheet[0]=n/10; break; case 'msh': if(n>0) m.sheet[1]=n/10; break;
+    case 'mmargin': if(v==='') delete m.margin; else m.margin=n/10; break; case 'mcost': m.cost=n||0; break;
     case 'mpr': if(v==='') delete m.pr[d.k]; else m.pr[d.k]=n; break;
     case 'mwaste': if(v==='') delete m.waste; else m.waste=n; break;
     case 'mfx': { m.fx=m.fx||{}; const z=m.fx[d.z]=m.fx[d.z]||{}; if(v==='') delete z[d.k]; else z[d.k]=n; break; }
-    case 'glenAdd': CFG.lenAdd=n||0; break; case 'gseam': CFG.seam=n||0; break; case 'gnest': CFG.nest=t.checked; break;
+    case 'glenAdd': CFG.lenAdd=(n||0)/10; break; case 'gseam': CFG.seam=n||0; break; case 'gnest': CFG.nest=t.checked; break;
     case 'qcat': { const C=CATS[d.cat]; if(t.checked){ if(!C.q.includes(d.k)) C.q.push(d.k); } else { C.q=C.q.filter(x=>x!==d.k); } redraw=true; break; }
     case 'qn': Q[d.k].n=v; break; case 'qt': Q[d.k].t=v; break; case 'qink': INK[d.k]=n||0; break;
     case 'otitle': OPT[d.key].l=v; break; case 'otype': OPT[d.key].t=v; break;
@@ -731,8 +894,11 @@ function settingsChange(t){
     case 'tn': TERMS[d.g][i].n=v; break; case 'ts': TERMS[d.g][i].s=v; break; case 'tk': TERMS[d.g][i].k=n||1; break;
     case 'tv': case 'tu': { const tm=TERMS[d.g][i], u=s==='tu'?v:(tm.hours?'h':'d'), val=s==='tv'?n:(tm.hours||tm.days); delete tm.hours; delete tm.days; tm[u==='h'?'hours':'days']=val||1; break; }
     case 'vq': CFG.volume[i].q=n; break; case 'vd': CFG.volume[i].d=(n||0)/100; break;
-    case 'gmarkup': CFG.markup=(n||0)/100; break; case 'gmarginRoll': CFG.marginRoll=n||0; break; case 'gmarginSheet': CFG.marginSheet=n||0; break; case 'gleftoverMin': CFG.leftoverMin=n||0; break;
+    case 'gmarkup': CFG.markup=(n||0)/100; break; case 'gmarginRoll': CFG.marginRoll=(n||0)/10; break; case 'gmarginSheet': CFG.marginSheet=(n||0)/10; break; case 'gleftoverMin': CFG.leftoverMin=(n||0)/10; break;
     case 'gpvhBase': CFG.pvhCut.base=n||0; break; case 'gpvhMm': CFG.pvhCut.perMm=n||0; break;
+    case 'machN': CFG.machines[i].n=v; break; case 'ccn': CFG.ccats[i].n=v; break; case 'cck': if(n>0) CFG.ccats[i].k=n/100; break;
+    case 'rOn': CFG.remind.on=t.checked; redraw=true; break; case 'rDay': CFG.remind.onDay=t.checked; redraw=true; break; case 'rOver': CFG.remind.overdue=t.checked; redraw=true; break; case 'rEvery': CFG.remind.every=Math.max(0,n||0); redraw=true; break;
+    case 'pmax': CFG.printMax[d.k]=Math.max(0,n||0); break; case 'govl': CFG.overlap=Math.max(0,n||0); break;
     case 'ln': CFG.levels[i].name=v; break; case 'ld': CFG.levels[i].d=(n||0)/100; break;
     case 'xt': TEXTS[i].t=v; break; case 'xw': TEXTS[i].where=v; break; case 'xb': TEXTS[i].body=v; break; case 'xcap': TEXTS[i].photos[j].cap=v; break;
     case 'xadd': for(const f of t.files) shrinkImg(f).then(src=>{ TEXTS[i].photos.push({src,cap:f.name.replace(/\.[^.]+$/,'')}); persist(); rr(); }); break;
@@ -770,7 +936,7 @@ function go(id){ try{ history.pushState(null,'','#'+id); }catch(e){} route(id); 
 function route(id){
   if(id==null) id=location.hash.slice(1)||'dash';
   const [pg,arg]=id.split('/'); U.page=PAGES[pg]?pg:'dash'; U.arg=arg;
-  if(!['orders','clients','reports'].includes(U.page)) U.q='';
+  if(!['orders','clients','reports','prepress'].includes(U.page)) U.q='';
   closeModal(); render(); window.scrollTo(0,0);
 }
 function render(){ renderWho(); document.querySelector('.alay').classList.toggle('solo',!ME()); if(!ME()){ $('#side').innerHTML=''; $('#side').style.display='none'; pLogin(); return; } $('#side').style.display=''; renderSide(); PAGES[U.page](U.arg); }
@@ -784,13 +950,16 @@ const toast=t=>modal(`<h3>${t}</h3>`);
 function setStatus(o,s){
   if(!NEXT[o.st].includes(s)) return;
   const from=o.st; o.st=s; logO(o,`статус «${ST[from][0]}» → «${ST[s][0]}»`);
-  const msg={print:'Замовлення передано в друк.',ready:o.deliv==='self'?'Замовлення готове. Забрати можна на складі.':'Замовлення готове й буде відправлене Новою Поштою.',sent:`Замовлення відправлено. ТТН ${o.ttn}.`,cancel:'Замовлення скасовано.',paid:'Макет перевірено, оплату отримано — замовлення в черзі на друк.'}[s];
+  const msg={print:'Замовлення передано в друк.',ready:o.deliv==='self'?'Замовлення готове. Забрати можна на складі.':'Замовлення готове й буде відправлене Новою Поштою.',sent:`Замовлення відправлено. ТТН ${o.ttn}.`,cancel:'Замовлення скасовано.',paid:o.credit&&!isPaid(o)?`Макет перевірено, замовлення в черзі на друк. Оплату очікуємо до ${dstr(o.credit.date)}.`:'Макет перевірено, оплату отримано — замовлення в черзі на друк.'}[s];
   if(msg) sendClient(o,s==='ready'||s==='sent'?'Склад':'Менеджер',`№${o.id}: ${msg}`);
 }
 function payFromBalance(o){ const s=due(o); if(s<=0||bal(o.c)<s) return;
   LEDGER.push({c:o.c,d:new Date(),t:`Оплата замовлення №${o.id}`,s:-s}); o.paid+=s; logO(o,`оплата з балансу ${fmt(s)} грн`);
   sendClient(o,'Бухгалтерія',`Оплату ${fmt(s)} грн за №${o.id} отримано.`);
   if(o.st==='check'&&layoutsOk(o)) setStatus(o,'paid'); }
+// оплата поза балансом (переказ, готівка, термінал) — тільки бухгалтер
+function markPaid(o){ const s=due(o); if(s<=0) return; LEDGER.push({c:o.c,d:new Date(),t:`Надходження оплати за №${o.id}`,s}); INV.forEach(v=>{ if(v.o.includes(o.id)) v.paid=true; }); payFromBalance(o); }
+function unpay(o){ const s=o.paid; if(!s) return; LEDGER.push({c:o.c,d:new Date(),t:`Повернення оплати №${o.id} (статус змінено бухгалтером)`,s},{c:o.c,d:new Date(),t:`Сторно надходження за №${o.id}`,s:-s}); o.paid=0; INV.forEach(v=>{ if(v.o.includes(o.id)) v.paid=false; }); logO(o,'статус оплати: не оплачено'); }
 function releaseOrders(s){ for(const o of ORD) if(o.who===s.id&&open_(o)){ o.who=null; o.log.push({d:new Date(),t:`${short(s.n)} пішов зі зміни — замовлення вільне`}); } }
 
 document.addEventListener('click',e=>{
@@ -807,7 +976,7 @@ document.addEventListener('click',e=>{
       if(!s){ $('#lgErr').textContent='Невірний email або пароль'; return; }
       setMe(s.id); s.online=true; s.seen=new Date(); go('dash'); break; }
     case 'logout': { const s=ME(); if(s){ s.online=false; s.seen=new Date(); releaseOrders(s); } setMe(null); render(); break; }
-    case 'fClear': U.df='';U.dt='';U.q=''; rr(); break;
+    case 'fClear': Object.assign(U,{df:'',dt:'',q:'',fMgr:'',fDes:'',fRv:'',fPay:'',fSum:'',fPd:'',fSt:''}); rr(); break;
     case 'repCsv': reportCsv(); break;
     case 'period': U.period=+v; rr(); break;
     case 'otab': U.otab=v; rr(); break;
@@ -818,13 +987,13 @@ document.addEventListener('click',e=>{
       setStatus(o,v); rr(); break;
     case 'doCancel': if(o.paid){ LEDGER.push({c:o.c,d:new Date(),t:`Повернення за скасоване №${o.id}`,s:o.paid}); o.paid=0; } setStatus(o,'cancel'); closeModal(); rr(); break;
     case 'fOk': { const f=o.files[+v]; f.st='ok'; logO(o,`макет ${f.n} перевірено`);
-      if(layoutsOk(o)){ if(o.st==='fix') o.st='check'; sendClient(o,'Препрес',`Макет для №${o.id} перевірено.`+(isPaid(o)?' Замовлення йде в друк.':' Замовлення піде в друк після оплати.')); if(isPaid(o)&&o.st==='check') setStatus(o,'paid'); }
+      if(layoutsOk(o)){ if(o.st==='fix') o.st='check'; sendClient(o,'Препрес',`Макет для №${o.id} перевірено.`+(isPaid(o)?' Замовлення йде в друк.':' Замовлення піде в друк після оплати.')); o.rv='ok'; if((isPaid(o)||o.credit)&&o.st==='check') setStatus(o,'paid'); }
       rr(); break; }
     case 'fBad': modal(`<h3>Повернути макет на виправлення</h3><p class="muted" style="margin-top:0">${esc(o.files[+v].n)} · №${id}</p>
        <div class="lbl">Причина (клієнт побачить цей текст)</div><textarea class="area" id="badWhy" style="min-height:90px" placeholder="Напр.: шрифти не переведені в криві"></textarea>
        <label class="check" style="margin-top:10px;font-size:13px"><input type="checkbox" id="badRw" checked>Додати в повідомлення посилання «Замовити доопрацювання»</label>
        <div style="margin-top:12px"><button class="btn pri" data-act="doBad" data-id="${id}" data-v="${v}">Повернути клієнту</button></div>`); break;
-    case 'doBad': { const why=$('#badWhy').value.trim(); if(!why){ $('#badWhy').focus(); return; } const f=o.files[+v]; f.st='bad'; f.reason=why; o.fixReason=why;
+    case 'doBad': { const why=$('#badWhy').value.trim(); if(!why){ $('#badWhy').focus(); return; } const f=o.files[+v]; f.st='bad'; f.reason=why; o.fixReason=why; o.rv='bad';
       if(o.st==='check') o.st='fix'; logO(o,`макет ${f.n} повернено: ${why}`);
       sendClient(o,'Препрес',`Макет ${f.n} повернено на виправлення. ${why}`,{fix:$('#badRw').checked});
       closeModal(); rr(); break; }
@@ -832,13 +1001,49 @@ document.addEventListener('click',e=>{
       o.rework=p; o.reworkReq=false; logO(o,`вартість доопрацювання ${fmt(p)} грн`); sendClient(o,'Препрес',`Вартість доопрацювання макета: ${fmt(p)} грн — додано до замовлення №${o.id}. Після оплати дизайнер підготує макет.`); rr(); break; }
     case 'reply': { const tx=$('#rTx').value.trim(); if(!tx) return; sendClient(o,$('#rFrom').value,tx); logO(o,'надіслано повідомлення клієнту'); rr(); break; }
     case 'ttn': o.ttn=$('#ttn').value.trim(); logO(o,`ТТН ${o.ttn||'видалено'}`); rr(); break;
-    case 'payBal': payFromBalance(o); rr(); break;
+    case 'payBal': if(!can('pay')) return; payFromBalance(o); rr(); break;
+    case 'markPaid': if(!can('pay')) return; markPaid(o); rr(); break;
+    case 'unpay': if(!can('pay')) return; ask(`Позначити №${id} як не оплачене? Оплачені ${fmt(o.paid)} грн буде сторновано.`,()=>{ unpay(o); }); $('#modalBox .btn.pri').textContent='Так, не оплачено'; break;
+    case 'credit': if(!can('credit')) return; creditModal(o); break;
+    case 'doCredit': { const v2=$('#crDate').value; if(!v2){ $('#crErr').textContent='Вкажіть дату оплати'; return; }
+      const d=new Date(v2+'T00:00:00'); if(dayKey(d)<0){ $('#crErr').textContent='Дата оплати не може бути в минулому'; return; }
+      const note=$('#crNote').value.trim(); o.credit={date:d,by:meId,note}; logO(o,`у друк без оплати, дата оплати ${dstr(d)}${note?' — '+note:''}`);
+      sendClient(o,'Менеджер',`Замовлення №${o.id} передано в друк до оплати. Будь ласка, оплатіть ${fmt(due(o))} грн до ${dstr(d)}.`);
+      if(o.st==='check') setStatus(o,'paid'); closeModal(); rr(); break; }
+    case 'dlvSet': { if(!can('delivery')) return; const p=Math.max(0,+$('#dlvP').value||0); o.dlv=p; logO(o,p?`доставка ${fmt(p)} грн`:'доставку прибрано');
+      INV.forEach(x=>{ if(!x.paid&&x.o.includes(o.id)) x.s=x.o.reduce((a,oid)=>a+(ord(oid)?due(ord(oid)):0),0); });
+      if(p) sendClient(o,'Доставка',`До замовлення №${o.id} додано доставку: ${fmt(p)} грн. До сплати разом: ${fmt(due(o))} грн.`); rr(); break; }
+    case 'sendInv': { const inv=INV[+v], c=cl(inv.c), ph=(c.ph||'').replace(/\D/g,''), tx=encodeURIComponent(`Рахунок ${inv.n} на ${fmt(inv.s)} грн${inv.o.length?' за замовлення №'+inv.o.join(', №'):''}`);
+      const ch=(n,href,sub)=>`<a class="btn sendch" href="${href}" target="_blank" rel="noopener" data-act="invSent" data-v="${v}" data-ch="${n}"><b>${n}</b><span>${esc(sub)}</span></a>`;
+      modal(`<h3>Надіслати рахунок ${inv.n}</h3><p class="muted" style="margin-top:0">${esc(c.n)} · ${fmt(inv.s)} грн. Контакти — з картки клієнта.</p><div class="sendgrid">
+        ${ch('Email',`mailto:${c.em}?subject=${tx}&body=${tx}`,c.em)}${ch('Telegram',`https://t.me/+${ph}`,c.ph)}${ch('WhatsApp',`https://wa.me/${ph}?text=${tx}`,c.ph)}${ch('Viber',`viber://chat?number=%2B${ph}`,c.ph)}</div>
+        <p class="muted" style="font-size:12.5px">У робочій версії рахунок PDF надсилається автоматично з бізнес-акаунтів; зараз відкривається лист або чат з текстом.</p>`); break; }
+    case 'invSent': { const inv=INV[+v]; (inv.sent=inv.sent||[]).push({ch:a.dataset.ch,d:new Date(),by:meId}); inv.o.forEach(oid=>{ const x=ord(oid); if(x){ logO(x,`рахунок ${inv.n} надіслано: ${a.dataset.ch}`); sendClient(x,'Бухгалтерія',`Рахунок ${inv.n} на ${fmt(inv.s)} грн надіслано (${a.dataset.ch}).`); } }); setTimeout(()=>{ closeModal(); rr(); },50); break; }
+    case 'oview': U.oview=v; rr(); break;
+    case 'combo': U.combo=!U.combo; rr(); break;
+    case 'nmTgl': U.nm=a.checked; rr(); break;
+    case 'printDoc': printDoc(o); break;
+    case 'addClient': modal(`<h3>Новий клієнт</h3><div class="fgrid"><div><div class="lbl">Ім’я та прізвище</div><input class="inp" id="ncN"></div><div><div class="lbl">Телефон</div><input class="inp" id="ncP" placeholder="+380 …"></div>
+       <div><div class="lbl">Email</div><input class="inp" id="ncE" type="email"></div><div><div class="lbl">Тип</div><select class="sel" id="ncT"><option value="person">Фізична особа</option><option value="fop">ФОП</option><option value="company">Юридична особа</option></select></div>
+       <div><div class="lbl">Категорія (ціни)</div><select class="sel" id="ncC">${CFG.ccats.map(x=>`<option value="${x.id}">${esc(x.n)}</option>`).join('')}</select></div><div><div class="lbl">Компанія / реквізити</div><input class="inp" id="ncCo"></div></div>
+       <div id="ncErr" style="color:var(--bad);font-size:13px;min-height:18px;margin-top:6px"></div><p class="muted" style="font-size:13px;margin-top:0">Для клієнта створюється особистий кабінет: доступ прийде на телефон або email (у робочій версії).</p><button class="btn pri" data-act="doClient">Створити клієнта</button>`); break;
+    case 'doClient': { const n=$('#ncN').value.trim(), ph=$('#ncP').value.trim(), em=$('#ncE').value.trim().toLowerCase();
+      if(!n||(!ph&&!em)){ $('#ncErr').textContent='Вкажіть ім’я і телефон або email'; return; }
+      const nid=Math.max(...CL.map(c=>c.id))+1; CL.push({id:nid,n,ph:ph||'—',em:em||'—',type:$('#ncT').value,co:$('#ncCo').value.trim(),cat:$('#ncC').value,level:CFG.levels[0].id,since:new Date(),pass:'k'+Math.random().toString(36).slice(2,8),by:meId});
+      closeModal(); go('client/'+nid); break; }
+    case 'behalf': { const ds=debtsOf(id);
+      if(ds.length){ modal(`<div class="alert" style="margin:0 0 12px"><b>У клієнта є борг: ${fmt(ds.reduce((a,o)=>a+due(o),0))} грн</b>${ds.map(o=>`№${o.id} — ${fmt(due(o))} грн, дата оплати ${dstr(o.credit.date)}${dayKey(o.credit.date)<0?' (прострочено)':''}`).join('<br>')}</div>
+        <p style="margin:0 0 12px">Продовжити оформлення нового замовлення?</p><div class="btns"><button class="btn" data-close>Скасувати</button><button class="btn pri" data-act="doBehalf" data-id="${id}">Продовжити</button></div>`); break; }
+      } // без боргу — одразу далі
+    case 'doBehalf': closeModal(); persist(); window.open(`calculator.html?as=${id}&by=${meId}`,'_blank'); break;
+    case 'catOk': { const c=cl(id); c.cat=c.catReq; delete c.catReq; rr(); break; }
+    case 'catNo': { const c=cl(id); delete c.catReq; rr(); break; }
     case 'demoUp': addFile(o,'maket_vypravlenyi.pdf'); rr(); break;
     case 'mkInv': { const n='СФ-'+(3122+INV.length); INV.unshift({n,c:o.c,d:new Date(),o:[o.id],s:due(o),paid:false}); logO(o,`виставлено рахунок ${n}`); sendClient(o,'Бухгалтерія',`Рахунок ${n} на ${fmt(due(o))} грн — у розділі «Фінанси».`); toast(`Рахунок ${n} виставлено`); rr(); break; }
-    case 'invPaid': { const inv=INV[+v]; inv.paid=true; LEDGER.push({c:inv.c,d:new Date(),t:`Оплата за рахунком ${inv.n}`,s:inv.s});
+    case 'invPaid': { if(!can('pay')) return; const inv=INV[+v]; inv.paid=true; LEDGER.push({c:inv.c,d:new Date(),t:`Оплата за рахунком ${inv.n}`,s:inv.s});
       for(const oid of inv.o){ const x=ord(oid); if(x) payFromBalance(x); } rr(); break; }
     case 'adj': modal(`<h3>Коригування балансу · №${id}</h3><div class="fgrid"><div><div class="lbl">Сума, грн (мінус — списання)</div><input class="inp" id="adjS" type="number"></div><div><div class="lbl">Коментар</div><input class="inp" id="adjT" placeholder="Причина"></div></div><div style="margin-top:12px"><button class="btn pri" data-act="doAdj" data-id="${id}">Провести</button></div>`); break;
-    case 'doAdj': { const s=+$('#adjS').value, tx=$('#adjT').value.trim(); if(!s||!tx) return; LEDGER.push({c:id,d:new Date(),t:`Коригування (${short(ME().n)}): ${tx}`,s}); closeModal(); rr(); break; }
+    case 'doAdj': { if(!can('pay')) return; const s=+$('#adjS').value, tx=$('#adjT').value.trim(); if(!s||!tx) return; LEDGER.push({c:id,d:new Date(),t:`Коригування (${short(ME().n)}): ${tx}`,s}); closeModal(); rr(); break; }
     case 'addRole': if(!isOwner()) return; RL.push({id:'r'+Date.now().toString(36),n:'Нова роль',perms:[]}); syncRoles(); rr(); break;
     case 'delRole': { if(!isOwner()) return; const r=roleOf(v), others=RL.filter(x=>!x.fixed&&x.id!==v).sort((a,b)=>a.perms.length-b.perms.length), n=STAFF.filter(x=>x.role===v).length; // переводимо на роль з найменшими правами
       if(!others.length){ toast('Має лишитися хоча б одна роль, крім «Власник».'); return; }
@@ -856,6 +1061,11 @@ document.addEventListener('change',e=>{
   const t=e.target, d=t.dataset;
   if(t.id==='asg'){ const o=ord(U.arg); o.who=t.value?+t.value:null; logO(o,o.who?`призначено: ${staffN(o.who)}`:'знято виконавця'); rr(); return; }
   if(t.id==='lvl'){ const c=cl(+d.id); c.level=t.value; rr(); return; }
+  if(t.id==='ccSel'){ const c=cl(+d.id); c.cat=t.value; delete c.catReq; rr(); return; }
+  if(t.id==='desAsg'){ const o=ord(d.id); o.des=t.value?+t.value:null; if(o.des&&(o.rv||'none')==='none') o.rv='todo'; if(!o.des) o.rv='none'; logO(o,o.des?`перевірку призначено: ${staffN(o.des)}`:'дизайнера знято'); rr(); return; }
+  if(t.id==='rvSel'){ const o=ord(d.id); o.rv=t.value; logO(o,`статус перевірки: ${RV[o.rv][0]}`); rr(); return; }
+  if(d.f){ U[d.f]=t.value; rr(); return; }
+  if(d.mv){ const o=ord(d.mv); moveProd(o,t.value); rr(); return; }
   if(t.id==='fDf'){ U.df=t.value; rr(); return; }
   if(t.id==='fDt'){ U.dt=t.value; rr(); return; }
   if(t.id==='fSt'){ U.rst=t.value; rr(); return; }
@@ -874,6 +1084,13 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); if(e
 
 // зберігаємо після кожної дії; зміни з сайту клієнта (інша вкладка) підхоплюємо одразу
 for(const ev of ['click','change','input']) document.addEventListener(ev,()=>setTimeout(persist,0));
+// перетягування карток на дошках (CRM і виробництво)
+let DRAG=null;
+document.addEventListener('dragstart',e=>{ const c=e.target.closest&&e.target.closest('[data-drag]'); if(!c) return; DRAG=+c.dataset.drag; c.classList.add('dragging'); try{ e.dataTransfer.setData('text/plain',String(DRAG)); e.dataTransfer.effectAllowed='move'; }catch(x){} });
+document.addEventListener('dragend',()=>{ DRAG=null; document.querySelectorAll('.dragging,.over').forEach(n=>n.classList.remove('dragging','over')); });
+document.addEventListener('dragover',e=>{ const col=e.target.closest&&e.target.closest('[data-drop]'); if(!col||DRAG==null) return; e.preventDefault(); document.querySelectorAll('.kcol.over').forEach(n=>n!==col&&n.classList.remove('over')); col.classList.add('over'); });
+document.addEventListener('drop',e=>{ const col=e.target.closest&&e.target.closest('[data-drop]'); if(!col||DRAG==null) return; e.preventDefault(); const o=ord(DRAG), [b,k]=col.dataset.drop.split(':'); DRAG=null;
+  if(!o) return; if(b==='crm') moveCrm(o,k); else moveProd(o,k); persist(); });
 window.addEventListener('storage',e=>{ if(e.key===DB_KEY){ bind(); rr(); } });
 route();
 </script>

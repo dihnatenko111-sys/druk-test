@@ -397,3 +397,44 @@ footer .tel{font-size:22px;color:#fff;font-weight:700}
 .ptbl td.c.sel{background:var(--accent);color:var(--on-accent)}
 @media (max-width:900px){ .cols.prod{grid-template-columns:minmax(0,1fr)} }
 .lnk{color:var(--accent);font-weight:600;font-size:13px;white-space:nowrap}
+
+/* ---------- дошки (CRM, виробництво), фільтри, призначення ---------- */
+.fbar{flex-wrap:wrap;gap:8px}
+.fbar .sel,.fbar .inp{height:38px;width:auto;max-width:200px}
+.fbar .fsum{width:110px}
+.kb{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(232px,1fr);gap:12px;overflow-x:auto;padding-bottom:10px;margin-bottom:6px;align-items:start}
+.kcol{background:var(--soft);border:1px solid var(--line);border-radius:var(--r);padding:8px;min-height:220px;display:grid;gap:8px;align-content:start}
+.kcol.over{outline:2px dashed var(--accent);outline-offset:-2px;background:var(--accent-soft)}
+.kcol.kunpaid{background:var(--red-bg);border-color:color-mix(in srgb,var(--bad) 30%,var(--line))}
+.kcol-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline;padding:4px 6px 2px;font-size:13px}
+.kcol-h span{color:var(--muted);font-size:12px;white-space:nowrap}
+.kcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 11px;font-size:12.5px;display:grid;gap:4px;cursor:grab;box-shadow:var(--shadow)}
+.kcard:hover{border-color:var(--accent)}
+.kcard.dragging{opacity:.45}
+.kc-h{display:flex;justify-content:space-between;gap:8px;font-size:13.5px}
+.kc-c{font-weight:600}
+.kc-b{display:flex;flex-wrap:wrap;gap:4px}
+.kc-b .badge{font-size:11px}
+.kc-f{color:var(--muted);font-size:11.5px}
+.kc-o{font-size:11.5px}
+.kc-a{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.kc-a .sel{height:30px;font-size:12px;flex:1;min-width:110px;width:auto}
+.kempty{color:var(--muted);font-size:12.5px;text-align:center;padding:18px 0}
+.kb.prod{grid-auto-columns:minmax(250px,1fr)}
+.jira{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.jira .sel{height:36px}
+.sendgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:6px 0 10px}
+.sendch{height:auto;display:grid;justify-items:start;gap:2px;padding:10px 12px;text-align:left}
+.sendch span{font-size:12px;color:var(--muted);font-weight:400;overflow-wrap:anywhere}
+@media (max-width:640px){ .jira,.sendgrid{grid-template-columns:minmax(0,1fr)} .fbar .sel,.fbar .inp{max-width:none;flex:1 1 140px} }
+.own .unit{color:var(--muted);font-size:13px;text-align:center}
+.pv-note{width:100%;text-align:center;font-size:12px;color:var(--muted)}
+.rtype{display:grid;gap:6px;margin:0 0 14px}
+.rtype a{border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13.5px;color:var(--ink);cursor:pointer}
+.rtype a.on{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.behalf{background:var(--amber-bg);color:var(--amber-fg);border-bottom:1px solid var(--line);font-size:13.5px}
+.behalf .wrap{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;padding-top:8px;padding-bottom:8px}
+.behalf .debt{color:var(--bad)}
+/* широкі екрани: контент на всю ширину без порожніх полів (ТЗ п. 1) */
+@media (min-width:1500px){ .wrap{max-width:1480px} .cols.prod{grid-template-columns:minmax(0,1fr) 360px} }
+@media (min-width:1800px){ .wrap{max-width:1720px} }
