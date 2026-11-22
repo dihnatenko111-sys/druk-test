@@ -23,7 +23,9 @@ const CFG = {
   remind:{on:true,every:1,onDay:true,overdue:true},
   // максимальна ширина друку, мм (поверх ширини рулону): більше — ділимо на частини
   printMax:{eco:1600,eco2:1600,uv:1600,uvw:1600,uvwc:1600},
-  overlap:20,       // нахльост при поділі на частини, мм
+  overlap:20,
+  // канали надсилання рахунків (бізнес-акаунти; у тестовій версії відправка імітується)
+  msg:{auto:true,email:{on:true,v:'office@druk.test'},tg:{on:true,v:'@druk_orders_bot'},wa:{on:true,v:'+380 44 000 00 00'},vb:{on:false,v:''}},       // нахльост при поділі на частини, мм
   levels:[{id:'retail',name:'Базовий',d:0},{id:'regular',name:'Постійний',d:0},{id:'partner',name:'Партнер',d:0},{id:'agency',name:'Агенція',d:0}],
   volume:[{q:1,d:0}],  // знижка від тиражу
   tirageList:[1,2,3,4,5,10,15,20,25,30,40,50,75,100,150,200,250,300,500,1000],
@@ -499,7 +501,7 @@ function applyCatalog(c){
 function loadDB(){
   let db=null;
   try{ const raw=localStorage.getItem(DB_KEY); if(raw) db=JSON.parse(raw,(k,v)=>typeof v==='string'&&RE_DATE.test(v)?new Date(v):v); }catch(e){}
-  if(!db||db.v!==2) return seedDB();
+  if(!db||db.v!==3) return seedDB();
   applyCatalog(db.cat);
   for(const k of ['gen','bon','tickets']) db[k]=db[k]||{};
   // оновлення збережених даних: роль «Поліграфіст» додано пізніше
@@ -620,5 +622,5 @@ function seedDB(){
   const bon={10245:[{d:dt(-20,10,0),t:'Вітальні бонуси за реєстрацію',s:50},{d:dt(-12,18,0),t:'Нараховано за замовлення',o:47950,s:69.32},{d:dt(-11,18,0),t:'Нараховано за замовлення',o:47988,s:35.64},
     {d:dt(-3,10,25),t:'Списано при оплаті',o:48152,s:-62.21},{d:dt(-2,18,0),t:'Нараховано за замовлення',o:48101,s:34.39},{d:dt(-1,18,0),t:'Нараховано за замовлення',o:48152,s:57.36}]};
   const tickets={10245:[{id:311,d:dt(-13,11,0),subj:'Відтінок синього на банері',o:47950,st:'Відповідь надано'},{id:298,d:dt(-30,15,0),subj:'Як підготувати макет для висічки?',st:'Закрито'}]};
-  return {v:2,mig1:1,orders:ORD,clients:CL,ledger:LEDGER,inv:INV,staff:STAFF,roles:RL,texts:TEXTS,ink:INK,gen:{},bon,tickets};
+  return {v:3,mig1:1,orders:ORD,clients:CL,ledger:LEDGER,inv:INV,staff:STAFF,roles:RL,texts:TEXTS,ink:INK,gen:{},bon,tickets};
 }
