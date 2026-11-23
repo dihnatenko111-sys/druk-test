@@ -6,7 +6,7 @@
 <title>Адмінка друку</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=10">
+<link rel="stylesheet" href="app.css?v=11">
 <style>
 /* ---------- адмінка ---------- */
 .atop{display:flex;align-items:center;gap:16px;padding:12px 24px;flex-wrap:wrap}
@@ -109,7 +109,7 @@ select.ed{padding-right:24px;background-position:right 8px center}
 <div class="alay"><nav class="side" id="side"></nav><main class="amain" id="app"></main></div>
 <div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
 
-<script src="shared.js?v=10"></script>
+<script src="shared.js?v=11"></script>
 <script>
 /* =====================================================================
    АДМІНКА + CRM. Тестові дані, в пам'яті сторінки.
@@ -220,11 +220,13 @@ function pLogin(){
     <table class="tbl compact" style="min-width:0;margin-top:8px"><tbody>${STAFF.map(s=>`<tr class="row" data-act="fill" data-id="${s.id}"><td>${ROLES[s.role]}<small>${esc(short(s.n))}</small></td><td>${s.login}<small>${s.pass}</small></td></tr>`).join('')}</tbody></table>
     <div class="muted" style="margin-top:6px">Тестова версія: дані зберігаються в цьому браузері.</div></div></div>`;
 }
+// розділ «Замовлення» (CRM) — не для друкаря: йому достатньо виробничої дошки
+const seesOrders=()=>can('allOrders')||can('prepress')||can('clients')||can('money')||can('credit');
 function visibleOrders(){ return ORD.filter(o=>can('allOrders')||o.who===meId||o.des===meId); }
 function renderSide(){
   const pp=prepQueue().length, freeN=ORD.filter(o=>open_(o)&&!o.who&&o.st!=='cancel').length;
   const items=[
-    ['dash','dash','Дашборд'],['orders','orders','Замовлення',freeN||''],can('prepress')&&['prepress','eye','Препрес',pp||''],can('production')&&['production','printer','Виробництво'],
+    ['dash','dash','Дашборд'],seesOrders()&&['orders','orders','Замовлення',freeN||''],can('prepress')&&['prepress','eye','Препрес',pp||''],can('production')&&['production','printer','Виробництво'],
     can('clients')&&['clients','users','Клієнти'],can('money')&&['money','fin','Рахунки й оплати',reminders().length||''],can('reports')&&['reports','doc','Звіти'],
     (can('settings')||can('staff'))&&'sep',
     can('settings')&&['settings','cog','Налаштування'],can('staff')&&['staff','badge','Персонал']].filter(Boolean);
@@ -249,7 +251,7 @@ function pDash(){
   `<div class="stats four">
     <div class="stat"><div class="k">У роботі</div><div class="v">${work.length}</div><div class="s">замовлень до друку включно</div></div>
     <div class="stat"><div class="k">Площа друку</div><div class="v">${fmt1(work.reduce((a,o)=>a+m2(o),0))} <small>м²</small></div><div class="s">у роботі</div></div>
-    <div class="stat"><div class="k">Без виконавця</div><div class="v">${work.filter(o=>!o.who).length}</div><div class="s"><a data-go="orders" data-own="free">Відкрити вільні</a></div></div>
+    <div class="stat"><div class="k">Без виконавця</div><div class="v">${work.filter(o=>!o.who).length}</div><div class="s">${seesOrders()?'<a data-go="orders" data-own="free">Відкрити вільні</a>':''}</div></div>
     <div class="stat"><div class="k">Макетів на перевірці</div><div class="v">${prepQueue().length}</div><div class="s"><a data-go="prepress">До препресу</a></div></div></div>
   <div class="cols half">
    <div class="card flush"><div class="bar"><b>Завантаженість за датою готовності</b></div><div class="tbl-wrap"><table class="tbl compact" style="min-width:420px"><thead><tr><th>Готовність</th><th class="r">Замовлень</th><th class="r">м² друку</th><th>Номери</th></tr></thead><tbody>
@@ -365,6 +367,7 @@ function kcard(o){
    <div class="kc-f">${o.who?'Менеджер: '+short(staffN(o.who)):'<span class="free">вільне</span>'}${o.des?' · Дизайнер: '+short(staffN(o.des)):''} · до ${dstr(o.ready)}</div></div>`;
 }
 function pOrders(){
+  if(!seesOrders()){ app.innerHTML=noAccess(); return; }
   const base=visibleOrders(), list0=base.filter(srch).filter(inDates).filter(fPass), view=U.oview||'board';
   const head=pageH('Замовлення',`<div class="seg" style="margin:0">${[['board','Дошка'],['list','Список']].map(([k,n])=>`<a class="${view===k?'on':''}" data-act="oview" data-v="${k}">${n}</a>`).join('')}</div>`)+
    `<div class="card flush"><div class="bar fbar">${crmFilters()}</div></div>`;
@@ -427,7 +430,7 @@ function pOrder(id){
   const nx=NEXT[o.st].filter(s=>!(s==='sent'&&o.deliv==='self')&&!(s==='done'&&o.st==='ready'&&o.deliv!=='self'));
   const stBtn=s=>{ const block=s==='paid'&&!isPaid(o)&&!o.credit?'Чекає оплати (статус оплати змінює бухгалтер)':s==='paid'&&!layoutsOk(o)?'Не всі макети перевірені':s==='sent'&&!o.ttn?'Вкажіть ТТН':'';
     return `<button class="btn sm ${s==='cancel'?'bad':''}" data-act="st" data-v="${s}" data-id="${o.id}" ${block?`disabled title="${block}"`:''}>${s==='cancel'?'Скасувати':'→ '+ST[s][0]}</button>`; };
-  app.innerHTML=`<div class="crumbs"><a data-go="orders">Замовлення</a><span>/</span>№${o.id}</div>`+
+  app.innerHTML=`<div class="crumbs">${seesOrders()?'<a data-go="orders">Замовлення</a>':'<a data-go="production">Виробництво</a>'}<span>/</span>№${o.id}</div>`+
   pageH(`№${o.id} ${badge(o.st)}`,o.who?`<span class="muted" style="font-size:13px;align-self:center">Виконавець: <b style="color:var(--ink)">${staffN(o.who)}</b></span>${mine?'':''}`:`<button class="btn pri" data-act="take" data-id="${o.id}">Взяти в роботу</button>`)+
   (nx.length?`<div class="card" style="padding:14px 18px"><div class="btns"><span class="muted" style="font-size:13px;margin-right:4px">Змінити статус:</span>${nx.map(stBtn).join('')}
     ${can('credit')&&o.st==='check'&&!isPaid(o)&&!o.credit?`<button class="btn sm" data-act="credit" data-id="${o.id}" ${layoutsOk(o)?'':'disabled title="Не всі макети перевірені"'}>У друк без оплати…</button>`:''}</div></div>`:'')+
@@ -1048,7 +1051,7 @@ document.addEventListener('click',e=>{
     case 'fill': { const s=STAFF.find(x=>x.id===id); $('#lgLogin').value=s.login; $('#lgPass').value=s.pass; return; }
     case 'login': { const l=$('#lgLogin').value.trim().toLowerCase(), p=$('#lgPass').value, s=STAFF.find(x=>x.login===l&&x.pass===p);
       if(!s){ $('#lgErr').textContent='Невірний email або пароль'; return; }
-      setMe(s.id); s.online=true; s.seen=new Date(); go('dash'); break; }
+      setMe(s.id); s.online=true; s.seen=new Date(); go(seesOrders()?'dash':'production'); break; }
     case 'logout': { const s=ME(); if(s){ s.online=false; s.seen=new Date(); releaseOrders(s); } setMe(null); render(); break; }
     case 'fClear': Object.assign(U,{df:'',dt:'',q:'',fMgr:'',fDes:'',fRv:'',fPay:'',fSum:'',fPd:'',fSt:''}); rr(); break;
     case 'repCsv': reportCsv(); break;
