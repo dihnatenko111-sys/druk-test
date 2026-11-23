@@ -501,7 +501,7 @@ function applyCatalog(c){
 function loadDB(){
   let db=null;
   try{ const raw=localStorage.getItem(DB_KEY); if(raw) db=JSON.parse(raw,(k,v)=>typeof v==='string'&&RE_DATE.test(v)?new Date(v):v); }catch(e){}
-  if(!db||db.v!==3) return seedDB();
+  if(!db||db.v!==4) return seedDB();
   applyCatalog(db.cat);
   for(const k of ['gen','bon','tickets']) db[k]=db[k]||{};
   // оновлення збережених даних: роль «Поліграфіст» додано пізніше
@@ -594,6 +594,7 @@ function seedDB(){
     O(47950,10245,-14,'banner',5,'sol',6000,3000,1,'Стандарт 1 день',-12,'done',5,{files:[{n:'fasad_mesh.pdf',st:'ok'}]}),
     O(47911,10245,-16,'film',4,'eco',1200,900,3,'Стандарт 1 день',-15,'cancel',null,{}),
   ];
+  ORD.forEach(o=>{ if(['paid','print','ready','sent','done'].includes(o.st)) o.qAt=new Date(o.d.getTime()+3*36e5); });
   const ord=id=>ORD.find(o=>o.id==id);
   LEDGER.forEach(x=>{ const m=/Оплата замовлення №(\d+)/.exec(x.t), o=m&&ord(m[1]); if(o) x.s=-o.sum; });
   for(const c of CL){ const b=LEDGER.filter(x=>x.c===c.id).reduce((a,x)=>a+x.s,0); if(b<0){ const t=LEDGER.find(x=>x.c===c.id&&x.s>0); if(t) t.s+=Math.ceil(-b/500)*500+500; } }
@@ -622,5 +623,5 @@ function seedDB(){
   const bon={10245:[{d:dt(-20,10,0),t:'Вітальні бонуси за реєстрацію',s:50},{d:dt(-12,18,0),t:'Нараховано за замовлення',o:47950,s:69.32},{d:dt(-11,18,0),t:'Нараховано за замовлення',o:47988,s:35.64},
     {d:dt(-3,10,25),t:'Списано при оплаті',o:48152,s:-62.21},{d:dt(-2,18,0),t:'Нараховано за замовлення',o:48101,s:34.39},{d:dt(-1,18,0),t:'Нараховано за замовлення',o:48152,s:57.36}]};
   const tickets={10245:[{id:311,d:dt(-13,11,0),subj:'Відтінок синього на банері',o:47950,st:'Відповідь надано'},{id:298,d:dt(-30,15,0),subj:'Як підготувати макет для висічки?',st:'Закрито'}]};
-  return {v:3,mig1:1,orders:ORD,clients:CL,ledger:LEDGER,inv:INV,staff:STAFF,roles:RL,texts:TEXTS,ink:INK,gen:{},bon,tickets};
+  return {v:4,mig1:1,orders:ORD,clients:CL,ledger:LEDGER,inv:INV,staff:STAFF,roles:RL,texts:TEXTS,ink:INK,gen:{},bon,tickets};
 }

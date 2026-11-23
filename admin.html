@@ -6,7 +6,7 @@
 <title>Адмінка друку</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=9">
+<link rel="stylesheet" href="app.css?v=10">
 <style>
 /* ---------- адмінка ---------- */
 .atop{display:flex;align-items:center;gap:16px;padding:12px 24px;flex-wrap:wrap}
@@ -109,7 +109,7 @@ select.ed{padding-right:24px;background-position:right 8px center}
 <div class="alay"><nav class="side" id="side"></nav><main class="amain" id="app"></main></div>
 <div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
 
-<script src="shared.js?v=9"></script>
+<script src="shared.js?v=10"></script>
 <script>
 /* =====================================================================
    АДМІНКА + CRM. Тестові дані, в пам'яті сторінки.
@@ -361,7 +361,7 @@ function kcard(o){
   const late=open_(o)&&dayKey(o.ready)<0;
   return `<div class="kcard" draggable="true" data-drag="${o.id}" data-go="order/${o.id}"><div class="kc-h"><b>№${o.id}</b><span>${fmt(oTotal(o))}</span></div>
    <div class="kc-c">${esc(cl(o.c).n)}</div><div class="muted">${CATS[o.cat].n} · ${o.w}×${o.h} мм · ${o.tir} шт</div>
-   <div class="kc-b">${payBadge(o)}${o.des||o.rv!=='none'?rvBadge(o.rv):''}${late?'<span class="badge b-red">прострочено</span>':''}${o.st!=='check'&&isDebt(o)?badge(o.st):''}</div>
+   <div class="kc-b">${payBadge(o)}${o.des||o.rv!=='none'?rvBadge(o.rv):''}${late?'<span class="badge b-red">прострочено</span>':''}${o.st!=='check'&&isDebt(o)?badge(o.st):''}${o.prIssue?'<span class="badge b-red">повернув друкар</span>':''}</div>
    <div class="kc-f">${o.who?'Менеджер: '+short(staffN(o.who)):'<span class="free">вільне</span>'}${o.des?' · Дизайнер: '+short(staffN(o.des)):''} · до ${dstr(o.ready)}</div></div>`;
 }
 function pOrders(){
@@ -442,6 +442,7 @@ function pOrder(id){
      <dt>Розмір</dt><dd>${o.w} × ${o.h} мм</dd><dt>Тираж</dt><dd>${o.tir} шт${o.kits>1?` × ${o.kits} комплекти`:''}</dd><dt>Опції</dt><dd>${o.opts.join('<br>')||'—'}</dd>
      <dt>Термін</dt><dd>${o.term} · готовність <b>${dstr(o.ready)}</b></dd></dl></div>
    ${prepCard(o)}
+   ${diskCard(o)}
    <div class="card"><div class="card-h"><h2>Листування з клієнтом</h2></div>
     <div class="thread">${o.thread.map(m=>`<div class="tm ${m.from==='Клієнт'?'':'me'}"><div class="meta">${m.from} · ${dstr(m.d)} ${tstr(m.d)}</div>${esc(m.t)}</div>`).join('')||'<span class="muted">Повідомлень немає</span>'}</div>
     <div class="reply"><select class="sel" id="rFrom" style="width:150px">${['Менеджер','Препрес','Бухгалтерія','Склад','Доставка'].map(x=>`<option>${x}</option>`).join('')}</select><textarea id="rTx" placeholder="Повідомлення клієнту — прийде в його «Листування»"></textarea><button class="btn pri" data-act="reply" data-id="${o.id}">Надіслати</button></div></div>
@@ -464,6 +465,30 @@ function pOrder(id){
    ${k?`<div class="card"><div class="card-h"><h2>Розкладка</h2><span class="muted" style="font-size:12px">внутрішнє</span></div>
     <div style="font-size:13px">${k.L.kind==='roll'?`Рулон <b>${k.L.W*10} мм</b> · ${fmt1(k.L.L/100)} м пог.`:`Лист <b>${k.L.SW*10}×${k.L.SH*10} мм</b> · ${k.L.n} шт`} · використано ${fmt1(k.L.used)} м²</div><div class="lay-mini">${drawLayout(k.L)}</div></div>`:''}
   </div></div>`;
+}
+/* ---------- агент друку: папка на ПК друкаря / дизайнера (у тестовій версії — імітація) ---------- */
+const MON=['01','02','03','04','05','06','07','08','09','10','11','12'];
+const safe=t=>String(t).replace(/[\\/:*?"<>|,()«»]+/g,'').replace(/\s+/g,'-').replace(/-+/g,'-').slice(0,40);
+// хронологія: місяць \ дата \ номер замовлення \ файл
+const diskDir=(o,root)=>{ const d=o.qAt||o.d; return `${root}\\${d.getFullYear()}-${MON[d.getMonth()]}\\${dkey(d)}\\${o.id}`; };
+const diskName=(o,f,i)=>{ const ext=(f.n.match(/\.[a-z0-9]+$/i)||['.pdf'])[0].toLowerCase();
+  return `${o.id}_${String(i+1).padStart(2,'0')}_${safe(o.name)}_${o.w}x${o.h}мм_${safe(qName(o.qk))}_${o.tir*o.kits}шт${ext}`; };
+const PRINT_ROOT='D:\\Друк', DES_ROOT='D:\\Макети';
+function diskCard(o){
+  const pr=['paid','print','ready','sent','done'].includes(o.st), ds=!!o.des;
+  const issue=o.prIssue?`<div class="alert"><b>Друкар повернув менеджеру</b>${esc(o.prIssue.t)} <span class="muted">— ${esc(staffN(o.prIssue.by))}, ${dstr(o.prIssue.d)} ${tstr(o.prIssue.d)}</span>
+     ${can('credit')||can('assign')?`<div class="btns" style="margin-top:8px"><button class="btn sm pri" data-act="prToClient" data-id="${o.id}">Передати клієнту на виправлення</button><button class="btn sm" data-act="prResolve" data-id="${o.id}">Вирішено — повернути в чергу</button></div>`:''}</div>`:'';
+  if(!(pr&&can('production'))&&!(ds&&can('prepress'))) return issue;
+  const fs=o.files.map((f,i)=>({f,i})).filter(x=>x.f.st==='ok');
+  const block=(who,root)=>`<div class="disk"><div class="disk-h">${I.file}<b>${who}</b><span class="badge b-green">синхронізовано</span></div><code>${esc(diskDir(o,root))}\\</code>
+    ${fs.map(({f,i})=>`<div class="disk-f"><span>${esc(diskName(o,f,i))}</span><small>${f.ver>1?`версія ${f.ver} · змінено ${f.by||''} ${f.at?ago(f.at)+' тому':''}`:`оригінал: ${esc(f.n)}`}</small></div>`).join('')||'<span class="muted">Перевірених файлів ще немає</span>'}</div>`;
+  return `<div class="card"><div class="card-h"><h2>Файли на диску</h2><span class="muted" style="font-size:12px">агент друку · Windows</span></div>
+   ${issue}
+   ${pr&&o.qAt?block('ПК друкаря',PRINT_ROOT):''}${ds?block('ПК дизайнера',DES_ROOT):''}
+   ${pr&&!o.qAt?'<span class="muted" style="font-size:13px">Папка створиться, щойно замовлення потрапить у «Чергу друку».</span>':''}
+   <div class="btns" style="margin-top:10px">${fs.length&&(pr&&can('production')||ds&&can('prepress'))?`<button class="btn sm" data-act="demoEdit" data-id="${o.id}" style="border-style:dashed">Імітувати: файл змінено на ПК</button>`:''}
+    ${pr&&can('production')&&['paid','print'].includes(o.st)&&!o.prIssue?`<button class="btn sm bad" data-act="prIssue" data-id="${o.id}">Повернути менеджеру з коментарем</button>`:''}</div>
+   <p class="muted" style="font-size:12px;margin:10px 0 0">Агент сам створює папку і перейменовує файли. Змінений на ПК файл одразу замінює файл в адмінці, старий видаляється. Клієнт ці файли не бачить.</p></div>`;
 }
 function prepCard(o){
   const editable=['new','check','fix'].includes(o.st);
@@ -515,10 +540,10 @@ function prodCols(jobs){
 function pcard(o,cols,col){
   const L=lay(o);
   return `<div class="kcard" draggable="true" data-drag="${o.id}"><div class="kc-h"><a data-go="order/${o.id}"><b>№${o.id}</b></a>${o.st!=='ready'&&dayKey(o.ready)<0?'<span class="badge b-red">прострочено</span>':`<span class="muted">до ${dstr(o.ready)}</span>`}</div>
-   <div class="kc-c">${esc(o.name)}</div><div class="muted">${o.w}×${o.h} мм · ${o.tir*o.kits} шт · ${qName(o.qk)}</div>${L?`<div class="muted">${layTxt(L)} · ${fmt1(L.printArea)} м²</div>`:''}
+   <div class="kc-c">${esc(o.name)}</div><div class="muted">${o.w}×${o.h} мм · ${o.tir*o.kits} шт · ${qName(o.qk)}</div>${o.qAt?`<div class="muted kc-o">📁 ${esc(diskDir(o,PRINT_ROOT))}</div>`:''}${L?`<div class="muted">${layTxt(L)} · ${fmt1(L.printArea)} м²</div>`:''}
    ${o.opts.length?`<div class="muted kc-o">${esc(o.opts.join(', '))}</div>`:''}${o.credit&&!isPaid(o)?'<div class="kc-b"><span class="badge b-red">без оплати</span></div>':''}
    <div class="kc-a"><select class="sel" data-mv="${o.id}" aria-label="Перемістити №${o.id}">${cols.filter(c=>c[0]!=='nomach').map(c=>`<option value="${c[0]}" ${c[0]===col?'selected':''}>${esc(c[1])}</option>`).join('')}</select>
-    <button class="btn sm" data-act="printDoc" data-id="${o.id}">Замовлення на друк</button></div></div>`;
+    <button class="btn sm" data-act="printDoc" data-id="${o.id}">Замовлення на друк</button>${['paid','print'].includes(o.st)?`<button class="btn sm bad" data-act="prIssue" data-id="${o.id}">Повернути</button>`:''}</div></div>`;
 }
 function pProduction(){
   if(!can('production')){ app.innerHTML=noAccess(); return; }
@@ -998,6 +1023,7 @@ const toast=t=>modal(`<h3>${t}</h3>`);
 function setStatus(o,s){
   if(!NEXT[o.st].includes(s)) return;
   const from=o.st; o.st=s; logO(o,`статус «${ST[from][0]}» → «${ST[s][0]}»`);
+  if(s==='paid'&&!o.qAt){ o.qAt=new Date(); logO(o,`агент друку: створено папку ${diskDir(o,PRINT_ROOT)}`); }
   const msg={print:'Замовлення передано в друк.',ready:o.deliv==='self'?'Замовлення готове. Забрати можна на складі.':'Замовлення готове й буде відправлене Новою Поштою.',sent:`Замовлення відправлено. ТТН ${o.ttn}.`,cancel:'Замовлення скасовано.',paid:o.credit&&!isPaid(o)?`Макет перевірено, замовлення в черзі на друк. Оплату очікуємо до ${dstr(o.credit.date)}.`:'Макет перевірено, оплату отримано — замовлення в черзі на друк.'}[s];
   if(msg) sendClient(o,s==='ready'||s==='sent'?'Склад':'Менеджер',`№${o.id}: ${msg}`);
 }
@@ -1079,6 +1105,13 @@ document.addEventListener('click',e=>{
     case 'combo': U.combo=!U.combo; rr(); break;
     case 'nmTgl': U.nm=a.checked; rr(); break;
     case 'printDoc': printDoc(o); break;
+    case 'demoEdit': { const i=o.files.findIndex(f=>f.st==='ok'); if(i<0) return; const f=o.files[i], who=can('production')&&!can('prepress')?'на ПК друкаря':'на ПК дизайнера';
+      f.ver=(f.ver||1)+1; f.at=new Date(); f.by=who; logO(o,`файл ${diskName(o,f,i)} змінено ${who} — замінено на сервері (версія ${f.ver}, стару видалено)`); rr(); break; }
+    case 'prIssue': modal(`<h3>Повернути №${id} менеджеру</h3><p class="muted" style="margin-top:0">Замовлення вийде з черги друку. Менеджер вирішить, чи передавати клієнту.</p><div class="lbl">Що не так (критично для друку)</div><textarea class="area" id="prT" style="min-height:90px" placeholder="Напр.: немає вильотів 5 мм, текст у зоні люверсів"></textarea><div style="margin-top:12px"><button class="btn pri" data-act="doPrIssue" data-id="${id}">Повернути</button></div>`); break;
+    case 'doPrIssue': { const t=$('#prT').value.trim(); if(!t){ $('#prT').focus(); return; } o.prIssue={t,by:meId,d:new Date()}; o.st='check'; o.mach=null; logO(o,`друкар повернув менеджеру: ${t}`); closeModal(); rr(); break; }
+    case 'prToClient': { const t=o.prIssue.t; o.files.forEach(f=>{ if(f.st==='ok'){ f.st='bad'; f.reason=t; } }); o.fixReason=t; o.st='fix'; o.rv='bad'; delete o.prIssue; logO(o,'зауваження друкаря передано клієнту');
+      sendClient(o,'Препрес',`Макет для №${o.id} потребує виправлення перед друком: ${t}`,{fix:true}); rr(); break; }
+    case 'prResolve': delete o.prIssue; o.st='paid'; logO(o,'зауваження друкаря вирішено, замовлення повернуто в чергу'); rr(); break;
     case 'addClient': modal(`<h3>Новий клієнт</h3><div class="fgrid"><div><div class="lbl">Ім’я та прізвище</div><input class="inp" id="ncN"></div><div><div class="lbl">Телефон</div><input class="inp" id="ncP" placeholder="+380 …"></div>
        <div><div class="lbl">Email</div><input class="inp" id="ncE" type="email"></div><div><div class="lbl">Тип</div><select class="sel" id="ncT"><option value="person">Фізична особа</option><option value="fop">ФОП</option><option value="company">Юридична особа</option></select></div>
        <div><div class="lbl">Категорія (ціни)</div><select class="sel" id="ncC">${CFG.ccats.map(x=>`<option value="${x.id}">${esc(x.n)}</option>`).join('')}</select></div><div><div class="lbl">Компанія / реквізити</div><input class="inp" id="ncCo"></div></div>
