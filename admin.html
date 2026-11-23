@@ -6,7 +6,7 @@
 <title>Адмінка друку</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=12">
+<link rel="stylesheet" href="app.css?v=13">
 <style>
 /* ---------- адмінка ---------- */
 .atop{display:flex;align-items:center;gap:16px;padding:12px 24px;flex-wrap:wrap}
@@ -109,7 +109,12 @@ select.ed{padding-right:24px;background-position:right 8px center}
 <div class="alay"><nav class="side" id="side"></nav><main class="amain" id="app"></main></div>
 <div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
 
-<script src="shared.js?v=12"></script>
+<script>
+// нова версія сайту: браузер міг узяти сторінку з кешу — перевіряємо номер збірки й перезавантажуємо
+(function(){ var B='13'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
+  if(v&&v!==B&&u.searchParams.get('b')!==v){ u.searchParams.set('b',v); location.replace(u.toString()); } }).catch(function(){}); })();
+</script>
+<script src="shared.js?v=13"></script>
 <script>
 /* =====================================================================
    АДМІНКА + CRM. Тестові дані, в пам'яті сторінки.
@@ -541,13 +546,16 @@ function prodCols(jobs){
   return [['queue','Черга',o=>o.st==='paid'],...CFG.machines.map(m=>[m.id,m.n,o=>o.st==='print'&&o.mach===m.id]),
     ...(jobs.some(noM)?[['nomach','У друці · машину не вказано',noM]]:[]),['done','Віддруковано',o=>o.st==='ready']];
 }
+// картка на дошці друкаря: головне — відкрити файл і папку; решта дрібніше
 function pcard(o,cols,col){
-  const L=lay(o);
-  return `<div class="kcard" draggable="true" data-drag="${o.id}"><div class="kc-h"><a data-go="order/${o.id}"><b>№${o.id}</b></a>${o.st!=='ready'&&dayKey(o.ready)<0?'<span class="badge b-red">прострочено</span>':`<span class="muted">до ${dstr(o.ready)}</span>`}</div>
-   <div class="kc-c">${esc(o.name)}</div><div class="muted">${o.w}×${o.h} мм · ${o.tir*o.kits} шт · ${qName(o.qk)}</div>${o.qAt?`<button class="kc-dir" data-act="fsReveal" data-v="${esc(diskDir(o,PRINT_ROOT))}" title="Відкрити папку в Провіднику">📁 ${esc(diskDir(o,PRINT_ROOT))}</button>`:''}${L?`<div class="muted">${layTxt(L)} · ${fmt1(L.printArea)} м²</div>`:''}
-   ${o.opts.length?`<div class="muted kc-o">${esc(o.opts.join(', '))}</div>`:''}${o.credit&&!isPaid(o)?'<div class="kc-b"><span class="badge b-red">без оплати</span></div>':''}
-   <div class="kc-a"><select class="sel" data-mv="${o.id}" aria-label="Перемістити №${o.id}">${cols.filter(c=>c[0]!=='nomach').map(c=>`<option value="${c[0]}" ${c[0]===col?'selected':''}>${esc(c[1])}</option>`).join('')}</select>
-    <button class="btn sm" data-act="printDoc" data-id="${o.id}">Замовлення на друк</button>${['paid','print'].includes(o.st)?`<button class="btn sm bad" data-act="prIssue" data-id="${o.id}">Повернути</button>`:''}</div></div>`;
+  const L=lay(o), files=o.files.filter(f=>f.st==='ok'), late=o.st!=='ready'&&dayKey(o.ready)<0;
+  return `<div class="kcard pc" draggable="true" data-drag="${o.id}"><div class="kc-h"><b class="pc-n">№${o.id}</b>${late?'<span class="badge b-red">прострочено</span>':`<span class="muted">до ${dstr(o.ready)}</span>`}</div>
+   <div class="kc-c">${esc(o.name)}</div><div class="muted">${o.w}×${o.h} мм · ${o.tir*o.kits} шт · ${qName(o.qk)}</div>
+   ${L?`<div class="muted kc-o">${layTxt(L)}</div>`:''}${o.opts.length?`<div class="muted kc-o">${esc(o.opts.join(', '))}</div>`:''}${o.credit&&!isPaid(o)?'<div class="kc-b"><span class="badge b-red">без оплати</span></div>':''}
+   ${o.qAt&&files.length?`<div class="pc-main"><button class="btn pri" data-act="fsOpenO" data-id="${o.id}">Відкрити файл${files.length>1?'и ('+files.length+')':''}</button><button class="btn" data-act="fsReveal" data-v="${esc(diskDir(o,PRINT_ROOT))}">📁 Папка</button></div>`:''}
+   <div class="pc-sub"><button class="btn sm" data-go="order/${o.id}">Картка замовлення</button><button class="btn sm" data-act="printDoc" data-id="${o.id}">Бланк друку</button></div>
+   <label class="pc-mv"><span>Де зараз</span><select class="sel" data-mv="${o.id}" aria-label="Перемістити №${o.id}">${cols.filter(c=>c[0]!=='nomach').map(c=>`<option value="${c[0]}" ${c[0]===col?'selected':''}>${esc(c[1])}</option>`).join('')}</select></label>
+   ${['paid','print'].includes(o.st)?`<button class="pc-bad" data-act="prIssue" data-id="${o.id}">Проблема з файлом? Повернути менеджеру</button>`:''}</div>`;
 }
 function pProduction(){
   if(!can('production')){ app.innerHTML=noAccess(); return; }
@@ -555,7 +563,7 @@ function pProduction(){
   app.innerHTML=pageH('Виробництво',`<button class="btn ${U.combo?'pri':''}" data-act="combo">Спільна розкладка</button>`)+
   `<div class="kb prod">${cols.map(([k,n,f])=>{ const l=jobs.filter(f).sort((a,b)=>a.ready-b.ready), area=l.reduce((a,o)=>{ const L=lay(o); return a+(L?L.printArea:0); },0);
     return `<div class="kcol" data-drop="prod:${k}"><div class="kcol-h"><b>${esc(n)}</b><span>${l.length} · ${fmt1(area)} м²</span></div>${l.map(o=>pcard(o,cols,k)).join('')||'<div class="kempty">Порожньо</div>'}</div>`; }).join('')}</div>
-   <p class="foot-note">Перетягніть замовлення з «Черги» на машину — статус стане «У друці». Після друку — у «Віддруковано». Машини задаються в «Налаштування → CRM і виробництво».</p>`+
+   <p class="foot-note">Як працювати: 1) натисніть «Відкрити файл» і друкуйте; 2) у полі «Де зараз» виберіть машину — статус стане «У друці»; 3) після друку виберіть «Віддруковано». Картки можна й перетягувати. Машини задаються в «Налаштування → CRM і виробництво».</p>`+
   (U.combo?comboHtml():'');
 }
 // спільна розкладка кількох замовлень одного матеріалу для друкаря
@@ -610,6 +618,9 @@ function invDoc(inv){
   w.document.close();
 }
 // документ «Замовлення на друк» (формат уточнюється за фото-референсом замовника)
+function fsModal(open,path){ modal(`<h3>${open?'Відкрити файл':'Показати в папці'}</h3><p class="muted" style="margin-top:0">${open?'Агент друку відкриє файл у програмі, призначеній для нього в Windows (RIP, Photoshop, Acrobat…).':'Агент друку відкриє Провідник Windows і виділить файл.'}</p>
+        <code class="pathbox">${esc(path)}</code><div class="btns" style="margin-top:12px"><button class="btn" data-act="fsCopy" data-v="${esc(path)}">Копіювати шлях</button></div>
+        <p class="muted" style="font-size:12.5px;margin:10px 0 0">У тестовій версії агент не встановлено, тому файл не відкривається. Після встановлення кнопка спрацює одразу, без цього вікна.</p>`); }
 function printDoc(o){
   const L=lay(o), m=matOf(o), sz=(o.sizes&&o.sizes.length?o.sizes:[{w:o.w,h:o.h}]);
   const w=window.open('','_blank'); if(!w){ toast('Дозвольте спливаючі вікна, щоб відкрити документ.'); return; }
@@ -1110,10 +1121,10 @@ document.addEventListener('click',e=>{
     case 'nmTgl': U.nm=a.checked; rr(); break;
     case 'printDoc': printDoc(o); break;
     // відкриття файлу / папки робить агент друку через своє посилання drukagent:// (браузер сам не має доступу до диска)
-    case 'fsOpen': case 'fsReveal': { const open=a.dataset.act==='fsOpen', path=v;
-      modal(`<h3>${open?'Відкрити файл':'Показати в папці'}</h3><p class="muted" style="margin-top:0">${open?'Агент друку відкриє файл у програмі, призначеній для нього в Windows (RIP, Photoshop, Acrobat…).':'Агент друку відкриє Провідник Windows і виділить файл.'}</p>
-        <code class="pathbox">${esc(path)}</code><div class="btns" style="margin-top:12px"><button class="btn" data-act="fsCopy" data-v="${esc(path)}">Копіювати шлях</button></div>
-        <p class="muted" style="font-size:12.5px;margin:10px 0 0">У тестовій версії агент не встановлено, тому файл не відкривається. Після встановлення кнопка спрацює одразу, без цього вікна.</p>`); break; }
+    case 'fsOpen': case 'fsReveal': fsModal(a.dataset.act==='fsOpen',v); break;
+    case 'fsOpenO': { const fs=o.files.map((f,i)=>({f,i})).filter(x=>x.f.st==='ok'), dir=diskDir(o,PRINT_ROOT), path=x=>dir+'\\'+diskName(o,x.f,x.i);
+      if(fs.length===1){ fsModal(true,path(fs[0])); break; }
+      modal(`<h3>Файли замовлення №${o.id}</h3><div style="display:grid;gap:8px">${fs.map(x=>`<div class="disk-f"><span>${esc(diskName(o,x.f,x.i))}</span><span class="disk-a"><button class="btn sm pri" data-act="fsOpen" data-v="${esc(path(x))}">Відкрити</button><button class="btn sm" data-act="fsReveal" data-v="${esc(path(x))}">Показати в папці</button></span></div>`).join('')}</div>`); break; }
     case 'fsCopy': { const path=v; const ok=()=>{ a.textContent='Скопійовано ✓'; setTimeout(()=>{ a.textContent='Копіювати шлях'; },1500); };
       try{ navigator.clipboard.writeText(path).then(ok,()=>toast(esc(path))); }catch(e){ toast(esc(path)); } return; }
     case 'demoEdit': { const i=o.files.findIndex(f=>f.st==='ok'); if(i<0) return; const f=o.files[i], who=can('production')&&!can('prepress')?'на ПК друкаря':'на ПК дизайнера';

@@ -450,3 +450,18 @@ footer .tel{font-size:22px;color:#fff;font-weight:700}
 .kc-dir:hover{text-decoration:underline}
 .kc-dir:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 .pathbox{display:block;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:var(--soft);padding:8px 10px;border-radius:8px;overflow-wrap:anywhere}
+/* дошка друкаря: великі головні дії */
+.kcard.pc{gap:6px;cursor:default}
+.pc-n{font-size:16px}
+.pc-main{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:6px}
+.pc-main .btn{height:42px;font-size:14px}
+.pc-sub{display:flex;gap:6px;flex-wrap:wrap}
+.pc-mv{display:grid;gap:3px;font-size:11.5px;color:var(--muted)}
+.pc-mv .sel{height:34px;font-size:13px}
+.pc-bad{all:unset;cursor:pointer;color:var(--bad);font-size:12px;margin-top:2px}
+.pc-bad:hover{text-decoration:underline}
+.pc-bad:focus-visible{outline:2px solid var(--bad);outline-offset:2px;border-radius:4px}
+.pc-main{grid-template-columns:minmax(0,1fr)}
+.pc-main .btn{width:100%;white-space:nowrap}
+.pc-sub .btn{flex:1;white-space:nowrap}
+.kb.prod{grid-auto-columns:minmax(270px,1fr)}

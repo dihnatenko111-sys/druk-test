@@ -6,7 +6,7 @@
 <title>Широкоформатний друк</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=12">
+<link rel="stylesheet" href="app.css?v=13">
 </head>
 <body>
 
@@ -30,7 +30,12 @@
 <aside class="drawer" id="drawer"></aside>
 <div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
 
-<script src="shared.js?v=12"></script>
+<script>
+// нова версія сайту: браузер міг узяти сторінку з кешу — перевіряємо номер збірки й перезавантажуємо
+(function(){ var B='13'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
+  if(v&&v!==B&&u.searchParams.get('b')!==v){ u.searchParams.set('b',v); location.replace(u.toString()); } }).catch(function(){}); })();
+</script>
+<script src="shared.js?v=13"></script>
 <script>
 /* =====================================================================
    РЕНДЕР
