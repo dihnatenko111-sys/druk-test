@@ -6,7 +6,7 @@
 <title>Адмінка друку</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=11">
+<link rel="stylesheet" href="app.css?v=12">
 <style>
 /* ---------- адмінка ---------- */
 .atop{display:flex;align-items:center;gap:16px;padding:12px 24px;flex-wrap:wrap}
@@ -109,7 +109,7 @@ select.ed{padding-right:24px;background-position:right 8px center}
 <div class="alay"><nav class="side" id="side"></nav><main class="amain" id="app"></main></div>
 <div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
 
-<script src="shared.js?v=11"></script>
+<script src="shared.js?v=12"></script>
 <script>
 /* =====================================================================
    АДМІНКА + CRM. Тестові дані, в пам'яті сторінки.
@@ -226,7 +226,7 @@ function visibleOrders(){ return ORD.filter(o=>can('allOrders')||o.who===meId||o
 function renderSide(){
   const pp=prepQueue().length, freeN=ORD.filter(o=>open_(o)&&!o.who&&o.st!=='cancel').length;
   const items=[
-    ['dash','dash','Дашборд'],seesOrders()&&['orders','orders','Замовлення',freeN||''],can('prepress')&&['prepress','eye','Препрес',pp||''],can('production')&&['production','printer','Виробництво'],
+    seesOrders()&&['dash','dash','Дашборд'],seesOrders()&&['orders','orders','Замовлення',freeN||''],can('prepress')&&['prepress','eye','Препрес',pp||''],can('production')&&['production','printer','Виробництво'],
     can('clients')&&['clients','users','Клієнти'],can('money')&&['money','fin','Рахунки й оплати',reminders().length||''],can('reports')&&['reports','doc','Звіти'],
     (can('settings')||can('staff'))&&'sep',
     can('settings')&&['settings','cog','Налаштування'],can('staff')&&['staff','badge','Персонал']].filter(Boolean);
@@ -484,7 +484,8 @@ function diskCard(o){
   if(!(pr&&can('production'))&&!(ds&&can('prepress'))) return issue;
   const fs=o.files.map((f,i)=>({f,i})).filter(x=>x.f.st==='ok');
   const block=(who,root)=>`<div class="disk"><div class="disk-h">${I.file}<b>${who}</b><span class="badge b-green">синхронізовано</span></div><code>${esc(diskDir(o,root))}\\</code>
-    ${fs.map(({f,i})=>`<div class="disk-f"><span>${esc(diskName(o,f,i))}</span><small>${f.ver>1?`версія ${f.ver} · змінено ${f.by||''} ${f.at?ago(f.at)+' тому':''}`:`оригінал: ${esc(f.n)}`}</small></div>`).join('')||'<span class="muted">Перевірених файлів ще немає</span>'}</div>`;
+    ${fs.map(({f,i})=>`<div class="disk-f"><span>${esc(diskName(o,f,i))}</span>
+      <span class="disk-a"><button class="btn sm pri" data-act="fsOpen" data-v="${esc(diskDir(o,root)+'\\'+diskName(o,f,i))}">Відкрити файл</button><button class="btn sm" data-act="fsReveal" data-v="${esc(diskDir(o,root)+'\\'+diskName(o,f,i))}">Показати в папці</button><button class="btn sm" data-act="fsCopy" data-v="${esc(diskDir(o,root)+'\\'+diskName(o,f,i))}">Копіювати шлях</button></span><small>${f.ver>1?`версія ${f.ver} · змінено ${f.by||''} ${f.at?ago(f.at)+' тому':''}`:`оригінал: ${esc(f.n)}`}</small></div>`).join('')||'<span class="muted">Перевірених файлів ще немає</span>'}</div>`;
   return `<div class="card"><div class="card-h"><h2>Файли на диску</h2><span class="muted" style="font-size:12px">агент друку · Windows</span></div>
    ${issue}
    ${pr&&o.qAt?block('ПК друкаря',PRINT_ROOT):''}${ds?block('ПК дизайнера',DES_ROOT):''}
@@ -543,7 +544,7 @@ function prodCols(jobs){
 function pcard(o,cols,col){
   const L=lay(o);
   return `<div class="kcard" draggable="true" data-drag="${o.id}"><div class="kc-h"><a data-go="order/${o.id}"><b>№${o.id}</b></a>${o.st!=='ready'&&dayKey(o.ready)<0?'<span class="badge b-red">прострочено</span>':`<span class="muted">до ${dstr(o.ready)}</span>`}</div>
-   <div class="kc-c">${esc(o.name)}</div><div class="muted">${o.w}×${o.h} мм · ${o.tir*o.kits} шт · ${qName(o.qk)}</div>${o.qAt?`<div class="muted kc-o">📁 ${esc(diskDir(o,PRINT_ROOT))}</div>`:''}${L?`<div class="muted">${layTxt(L)} · ${fmt1(L.printArea)} м²</div>`:''}
+   <div class="kc-c">${esc(o.name)}</div><div class="muted">${o.w}×${o.h} мм · ${o.tir*o.kits} шт · ${qName(o.qk)}</div>${o.qAt?`<button class="kc-dir" data-act="fsReveal" data-v="${esc(diskDir(o,PRINT_ROOT))}" title="Відкрити папку в Провіднику">📁 ${esc(diskDir(o,PRINT_ROOT))}</button>`:''}${L?`<div class="muted">${layTxt(L)} · ${fmt1(L.printArea)} м²</div>`:''}
    ${o.opts.length?`<div class="muted kc-o">${esc(o.opts.join(', '))}</div>`:''}${o.credit&&!isPaid(o)?'<div class="kc-b"><span class="badge b-red">без оплати</span></div>':''}
    <div class="kc-a"><select class="sel" data-mv="${o.id}" aria-label="Перемістити №${o.id}">${cols.filter(c=>c[0]!=='nomach').map(c=>`<option value="${c[0]}" ${c[0]===col?'selected':''}>${esc(c[1])}</option>`).join('')}</select>
     <button class="btn sm" data-act="printDoc" data-id="${o.id}">Замовлення на друк</button>${['paid','print'].includes(o.st)?`<button class="btn sm bad" data-act="prIssue" data-id="${o.id}">Повернути</button>`:''}</div></div>`;
@@ -1015,7 +1016,7 @@ function route(id){
   if(!['orders','clients','reports','prepress'].includes(U.page)) U.q='';
   closeModal(); render(); window.scrollTo(0,0);
 }
-function render(){ renderWho(); document.querySelector('.alay').classList.toggle('solo',!ME()); if(!ME()){ $('#side').innerHTML=''; $('#side').style.display='none'; pLogin(); return; } $('#side').style.display=''; renderSide(); PAGES[U.page](U.arg); }
+function render(){ renderWho(); if(ME()&&!seesOrders()&&['dash','orders'].includes(U.page)){ U.page='production'; try{ history.replaceState(null,'','#production'); }catch(e){} } document.querySelector('.alay').classList.toggle('solo',!ME()); if(!ME()){ $('#side').innerHTML=''; $('#side').style.display='none'; pLogin(); return; } $('#side').style.display=''; renderSide(); PAGES[U.page](U.arg); }
 function rr(){ const y=window.scrollY; render(); window.scrollTo(0,y); }
 window.addEventListener('popstate',()=>route());
 
@@ -1108,6 +1109,13 @@ document.addEventListener('click',e=>{
     case 'combo': U.combo=!U.combo; rr(); break;
     case 'nmTgl': U.nm=a.checked; rr(); break;
     case 'printDoc': printDoc(o); break;
+    // відкриття файлу / папки робить агент друку через своє посилання drukagent:// (браузер сам не має доступу до диска)
+    case 'fsOpen': case 'fsReveal': { const open=a.dataset.act==='fsOpen', path=v;
+      modal(`<h3>${open?'Відкрити файл':'Показати в папці'}</h3><p class="muted" style="margin-top:0">${open?'Агент друку відкриє файл у програмі, призначеній для нього в Windows (RIP, Photoshop, Acrobat…).':'Агент друку відкриє Провідник Windows і виділить файл.'}</p>
+        <code class="pathbox">${esc(path)}</code><div class="btns" style="margin-top:12px"><button class="btn" data-act="fsCopy" data-v="${esc(path)}">Копіювати шлях</button></div>
+        <p class="muted" style="font-size:12.5px;margin:10px 0 0">У тестовій версії агент не встановлено, тому файл не відкривається. Після встановлення кнопка спрацює одразу, без цього вікна.</p>`); break; }
+    case 'fsCopy': { const path=v; const ok=()=>{ a.textContent='Скопійовано ✓'; setTimeout(()=>{ a.textContent='Копіювати шлях'; },1500); };
+      try{ navigator.clipboard.writeText(path).then(ok,()=>toast(esc(path))); }catch(e){ toast(esc(path)); } return; }
     case 'demoEdit': { const i=o.files.findIndex(f=>f.st==='ok'); if(i<0) return; const f=o.files[i], who=can('production')&&!can('prepress')?'на ПК друкаря':'на ПК дизайнера';
       f.ver=(f.ver||1)+1; f.at=new Date(); f.by=who; logO(o,`файл ${diskName(o,f,i)} змінено ${who} — замінено на сервері (версія ${f.ver}, стару видалено)`); rr(); break; }
     case 'prIssue': modal(`<h3>Повернути №${id} менеджеру</h3><p class="muted" style="margin-top:0">Замовлення вийде з черги друку. Менеджер вирішить, чи передавати клієнту.</p><div class="lbl">Що не так (критично для друку)</div><textarea class="area" id="prT" style="min-height:90px" placeholder="Напр.: немає вильотів 5 мм, текст у зоні люверсів"></textarea><div style="margin-top:12px"><button class="btn pri" data-act="doPrIssue" data-id="${id}">Повернути</button></div>`); break;
