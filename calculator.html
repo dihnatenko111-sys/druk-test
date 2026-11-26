@@ -6,7 +6,7 @@
 <title>Широкоформатний друк</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=13">
+<link rel="stylesheet" href="app.css?v=14">
 </head>
 <body>
 
@@ -32,10 +32,10 @@
 
 <script>
 // нова версія сайту: браузер міг узяти сторінку з кешу — перевіряємо номер збірки й перезавантажуємо
-(function(){ var B='13'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
+(function(){ var B='14'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
   if(v&&v!==B&&u.searchParams.get('b')!==v){ u.searchParams.set('b',v); location.replace(u.toString()); } }).catch(function(){}); })();
 </script>
-<script src="shared.js?v=13"></script>
+<script src="shared.js?v=14"></script>
 <script>
 /* =====================================================================
    РЕНДЕР
@@ -320,7 +320,7 @@ function openOrder(key){
   const [mi,qk,li,tid,tir]=key.split('|'); const c=curCat(), m=c.mats[+mi], t=TERMS[c.terms].find(x=>x.id===tid);
   const p=price(c,m,qk,+li,t,+tir); S.picked=key; renderDrawer(); const rd=ready(t);
   const sz=c.kind==='stand'?`${c.vids[S.vid].n}, ${stdList()[S.std][0]} × ${stdList()[S.std][1]} мм`:curSizes().map(s=>`${fmt1(s.w*10)} × ${fmt1(s.h*10)} мм`).join(', ');
-  C.draft={catId:S.cat,cat:c.n+(c.vids&&c.kind!=='stand'?' · '+c.vids[S.vid].n:''),name:m.n+(c.lam&&+li>0?' + ламінація '+c.lam[+li].n.toLowerCase():''),q:plain(Q[qk].n),size:sz,tir:+tir,kits:S.kits,opts:optList(p),term:t.n+(t.s?' '+t.s:''),readyTxt:rd.txt,readyDate:rd.d,x:{mi:+mi,qk,sizes:curSizes().map(z=>({w:z.w*10,h:z.h*10}))},sum:Math.round(p.total*100)/100};
+  C.draft={catId:S.cat,cat:c.n+(c.vids&&c.kind!=='stand'?' · '+c.vids[S.vid].n:''),name:m.n+(c.lam&&+li>0?' + ламінація '+c.lam[+li].n.toLowerCase():''),q:plain(Q[qk].n),size:sz,tir:+tir,kits:S.kits,opts:optList(p),term:t.n+(t.s?' '+t.s:''),readyTxt:rd.txt,readyDate:rd.d,x:{mi:+mi,qk,pwm:curPwm(),sizes:curSizes().map(z=>({w:z.w*10,h:z.h*10}))},sum:Math.round(p.total*100)/100};
   modal(`<h3>Оформлення замовлення</h3><dl class="kv">
     <dt>Продукт</dt><dd>${c.n}${c.vids&&c.kind!=='stand'?' · '+c.vids[S.vid].n:''}</dd><dt>Розмір</dt><dd>${sz}</dd>
     <dt>Матеріал</dt><dd>${m.n}${c.lam&&+li>0?' + ламінація '+c.lam[+li].n.toLowerCase():''}</dd><dt>Друк</dt><dd>${plain(Q[qk].n)}</dd>
@@ -527,7 +527,7 @@ function push(){
   Object.assign(c,{n:ME.name,ph:ME.phone,em:ME.email,type:ME.type,co:ME.company,code:ME.code,addr:ME.addr,recips:ME.recips,notify:ME.notify});
   for(const o of ORDERS){ let r=DB.orders.find(x=>x.id===o.id);
     if(!r){ const x=o._x||{}, C0=CATS[o.cat], z=(x.sizes&&x.sizes[0])||{w:0,h:0}; // нове замовлення з сайту — потрапляє в CRM
-      r={id:o.id,c:CID,d:o.d,cat:o.cat,mi:x.mi||0,mat:C0&&C0.mats?C0.mats[x.mi||0]:null,qk:x.qk,w:Math.round(z.w),h:Math.round(z.h),sizes:x.sizes,sizeTxt:o.size,tir:o.tir,kits:o.kits,term:o.term,ready:o.ready,
+      r={id:o.id,c:CID,d:o.d,cat:o.cat,mi:x.mi||0,mat:C0&&C0.mats?C0.mats[x.mi||0]:null,qk:x.qk,w:Math.round(z.w),h:Math.round(z.h),sizes:x.sizes,pwm:x.pwm||'p',sizeTxt:o.size,tir:o.tir,kits:o.kits,term:o.term,ready:o.ready,
         who:BY||null,name:o.name,opts:o.opts,ttn:'',des:null,rv:'none',dlv:0,credit:null,mach:null,
         log:[{d:o.d,t:BY?`Замовлення оформив ${(DB.staff.find(x=>x.id===BY)||{n:'менеджер'}).n} від імені клієнта`:'Замовлення створено клієнтом на сайті'}],thread:[]}; DB.orders.unshift(r); }
     const was=r.st;

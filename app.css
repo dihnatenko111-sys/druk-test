@@ -465,3 +465,4 @@ footer .tel{font-size:22px;color:#fff;font-weight:700}
 .pc-main .btn{width:100%;white-space:nowrap}
 .pc-sub .btn{flex:1;white-space:nowrap}
 .kb.prod{grid-auto-columns:minmax(270px,1fr)}
+.pwt{min-width:0;margin:4px 0 8px}.pwt .ed.w{width:90px}

@@ -6,7 +6,7 @@
 <title>Адмінка друку</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=13">
+<link rel="stylesheet" href="app.css?v=14">
 <style>
 /* ---------- адмінка ---------- */
 .atop{display:flex;align-items:center;gap:16px;padding:12px 24px;flex-wrap:wrap}
@@ -111,10 +111,10 @@ select.ed{padding-right:24px;background-position:right 8px center}
 
 <script>
 // нова версія сайту: браузер міг узяти сторінку з кешу — перевіряємо номер збірки й перезавантажуємо
-(function(){ var B='13'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
+(function(){ var B='14'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
   if(v&&v!==B&&u.searchParams.get('b')!==v){ u.searchParams.set('b',v); location.replace(u.toString()); } }).catch(function(){}); })();
 </script>
-<script src="shared.js?v=13"></script>
+<script src="shared.js?v=14"></script>
 <script>
 /* =====================================================================
    АДМІНКА + CRM. Тестові дані, в пам'яті сторінки.
@@ -194,7 +194,7 @@ const QN0=Object.fromEntries(Object.entries(Q).map(([k,q])=>[k,plain(q.n)]));
 const qName=k=>Q[k]?plain(Q[k].n):(QN0[k]||k);
 function lay(o){ // внутрішня розкладка: розміри в см, тираж × комплекти
   const c=o.cat==='stands'?CATS.banner:CATS[o.cat];
-  return layout(c,matOf(o),o.sizes&&o.sizes.length?o.sizes.map(z=>({w:z.w/10,h:z.h/10})):[{w:o.w/10,h:o.h/10}],o.tir*o.kits);
+  return layout(c,matOf(o),o.sizes&&o.sizes.length?o.sizes.map(z=>({w:z.w/10,h:z.h/10})):[{w:o.w/10,h:o.h/10}],o.tir*o.kits,{pw:o.pwm||'p'});
 }
 function costOf(o){
   const L=lay(o), m=matOf(o); if(!L) return null;
@@ -771,9 +771,15 @@ function sMats(){
     <input class="inp" data-s="mt" data-i="${i}" value="${esc(m.t||'')}" placeholder="Опис для клієнта (інфо «Матеріали»)" style="flex:2 1 220px;min-width:0">
     <label class="check" style="white-space:nowrap"><input type="checkbox" data-s="mna" data-i="${i}" ${m.na?'':'checked'}>В наявності</label>${delBtn('sDelMat',`data-i="${i}"`,'Видалити матеріал')}</div>
    <div class="mat-g">
-    <div><div class="lbl">${sheet?'Розмір листа, мм':'Ширини рулонів, мм'}</div>${sheet
+    <div ${sheet?'':'style="grid-column:1/-1"'}><div class="lbl">${sheet?'Розмір листа, мм':'Ширини рулонів і задруківки, мм'}</div>${sheet
       ?`<div class="rolls"><input class="ed w" type="number" data-s="msw" data-i="${i}" value="${m.sheet[0]*10}"><span class="muted">×</span><input class="ed w" type="number" data-s="msh" data-i="${i}" value="${m.sheet[1]*10}"></div>`
-      :`<div class="rolls">${m.rolls.map((r,j)=>`<span class="roll"><input class="ed w" type="number" data-s="mroll" data-i="${i}" data-j="${j}" value="${r*10}">${m.rolls.length>1?delBtn('sDelRoll',`data-i="${i}" data-j="${j}"`,'Прибрати ширину'):''}</span>`).join('')}<button class="btn sm" data-act="sAddRoll" data-i="${i}">+ ширина</button></div>`}</div>
+      :`<table class="tbl compact pwt"><thead><tr><th>Рулон</th><th>Задруківка</th><th>З підворотами / люверсами</th><th>З ламінацією</th><th></th></tr></thead><tbody>${m.rolls.map((r,j)=>{ const p=(m.pw||{})[r]||[], f=x=>p[x]!=null?Math.round(p[x]*10):'';
+        return `<tr><td class="e"><input class="ed w" type="number" data-s="mroll" data-i="${i}" data-j="${j}" value="${Math.round(r*10)}" aria-label="Ширина рулону, мм"></td>
+         <td class="e"><input class="ed w" type="number" data-s="mpw" data-x="0" data-i="${i}" data-j="${j}" value="${f(0)}" placeholder="${Math.round((r-2*def)*10)}" aria-label="Ширина задруківки, мм"></td>
+         <td class="e"><input class="ed w" type="number" data-s="mpw" data-x="1" data-i="${i}" data-j="${j}" value="${f(1)}" placeholder="—" aria-label="З підворотами, мм"></td>
+         <td class="e"><input class="ed w" type="number" data-s="mpw" data-x="2" data-i="${i}" data-j="${j}" value="${f(2)}" placeholder="—" aria-label="З ламінацією, мм"></td>
+         <td class="e">${m.rolls.length>1?delBtn('sDelRoll',`data-i="${i}" data-j="${j}"`,'Прибрати ширину'):''}</td></tr>`; }).join('')}</tbody></table>
+       <button class="btn sm" data-act="sAddRoll" data-i="${i}">+ рулон</button><div class="muted" style="font-size:12px;margin-top:4px">Усе в мм. Порожня клітинка — рулон мінус поле під друк з обох боків.</div>`}</div>
     <div><div class="lbl">Поле під друк, мм <span class="hint" title="Зазор навколо кожного виробу з кожного боку. Входить у використаний матеріал (обрізок). Порожньо — загальне значення з вкладки «Обрізок і поля».">?</span></div><input class="ed" type="number" step="5" data-s="mmargin" data-i="${i}" value="${m.margin!=null?m.margin*10:''}" placeholder="загальне: ${def*10}"></div>
     <div><div class="lbl">Собівартість, грн/м² <span class="hint" title="Скільки коштує 1 м² матеріалу без друку. Від неї рахується обрізок і маржа.">?</span></div><input class="ed" type="number" data-s="mcost" data-i="${i}" value="${m.cost}"></div>
     <div><div class="lbl">Ціна відходу, грн/м² <span class="hint" title="Скільки клієнт платить за 1 м² матеріалу, що пішов у відхід (ширина рулону мінус виріб).">?</span></div><input class="ed" type="number" step="0.5" data-s="mwaste" data-i="${i}" value="${m.waste??''}" placeholder="собівартість + націнка"></div>
@@ -966,7 +972,8 @@ function settingsChange(t){
     case 'szw': sizes()[i][0]=n; break; case 'szh': sizes()[i][1]=n; break; case 'szp': sizes()[i][2]=n; break;
     case 'szn': { const r=sizes()[i]; if(c.kind==='stand') r[3]=v; else r[2]=v; break; }
     case 'mn': m.n=v; break; case 'mt': m.t=v; break; case 'mna': m.na=t.checked?0:1; redraw=true; break;
-    case 'mroll': if(n>0) m.rolls[j]=n/10; break; case 'msw': if(n>0) m.sheet[0]=n/10; break; case 'msh': if(n>0) m.sheet[1]=n/10; break;
+    case 'mroll': if(n>0){ const old=m.rolls[j]; m.rolls[j]=n/10; if(m.pw&&m.pw[old]){ m.pw[n/10]=m.pw[old]; delete m.pw[old]; } } break;
+    case 'mpw': { m.pw=m.pw||{}; const W=m.rolls[j], r=m.pw[W]=m.pw[W]||[]; r[+d.x]=v===''?null:n/10; break; } case 'msw': if(n>0) m.sheet[0]=n/10; break; case 'msh': if(n>0) m.sheet[1]=n/10; break;
     case 'mmargin': if(v==='') delete m.margin; else m.margin=n/10; break; case 'mcost': m.cost=n||0; break;
     case 'mpr': if(v==='') delete m.pr[d.k]; else m.pr[d.k]=n; break;
     case 'mwaste': if(v==='') delete m.waste; else m.waste=n; break;
