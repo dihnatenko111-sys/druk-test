@@ -6,7 +6,7 @@
 <title>Адмінка друку</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=17">
+<link rel="stylesheet" href="app.css?v=18">
 <style>
 /* ---------- адмінка ---------- */
 .atop{display:flex;align-items:center;gap:16px;padding:12px 24px;flex-wrap:wrap}
@@ -111,11 +111,11 @@ select.ed{padding-right:24px;background-position:right 8px center}
 
 <script>
 // нова версія сайту: браузер міг узяти сторінку з кешу — перевіряємо номер збірки й перезавантажуємо
-(function(){ var B='17'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
+(function(){ var B='18'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
   if(v&&v!==B&&u.searchParams.get('b')!==v){ u.searchParams.set('b',v); location.replace(u.toString()); } }).catch(function(){}); })();
 </script>
-<script src="shared.js?v=17"></script>
-<script src="viewer.js?v=17"></script>
+<script src="shared.js?v=18"></script>
+<script src="viewer.js?v=18"></script>
 <script>
 /* =====================================================================
    АДМІНКА + CRM. Тестові дані, в пам'яті сторінки.
@@ -234,7 +234,7 @@ function renderSide(){
   const pp=prepQueue().length, freeN=ORD.filter(o=>open_(o)&&!o.who&&o.st!=='cancel').length;
   const items=[
     seesOrders()&&['dash','dash','Дашборд'],seesOrders()&&['orders','orders','Замовлення',freeN||''],can('prepress')&&['prepress','eye','Препрес',pp||''],can('production')&&['production','printer','Виробництво'],
-    can('clients')&&['clients','users','Клієнти'],can('money')&&['money','fin','Рахунки й оплати',reminders().length||''],can('reports')&&['reports','doc','Звіти'],
+    can('clients')&&['clients','users','Клієнти'],can('clients')&&['support','msg','Звернення',supportNew()||''],can('money')&&['money','fin','Рахунки й оплати',reminders().length||''],can('reports')&&['reports','doc','Звіти'],
     (can('settings')||can('staff'))&&'sep',
     can('settings')&&['settings','cog','Налаштування'],can('staff')&&['staff','badge','Персонал']].filter(Boolean);
   const cur=U.page==='order'?'orders':U.page==='client'?'clients':U.page;
@@ -600,24 +600,10 @@ function autoSend(inv){
 }
 // рахунок на оплату (PDF у робочій версії; тут — сторінка для друку / збереження в PDF)
 function invDoc(inv){
-  const c=cl(inv.c), w=window.open('','_blank'); if(!w){ toast('Дозвольте спливаючі вікна, щоб відкрити рахунок.'); return; }
-  const lines=[]; for(const oid of inv.o){ const o=ord(oid); if(!o) continue;
-    lines.push([`${CATS[o.cat].n}: ${o.name}, ${o.w}×${o.h} мм, ${qName(o.qk)} (замовлення №${o.id})`,o.tir*o.kits,'шт',o.sum]);
-    if(o.rework) lines.push([`Доопрацювання макета (№${o.id})`,1,'посл.',o.rework]); if(o.dlv) lines.push([`Доставка Новою Поштою (№${o.id}${o.dg?', відправка '+o.dg:''})`,1,'посл.',o.dlv]);
-    if(o.paid) lines.push([`Оплачено раніше (№${o.id})`,'','',-o.paid]); }
+  const c=cl(inv.c), lines=[];
+  for(const oid of inv.o){ const o=ord(oid); if(!o) continue; lines.push(...orderLines(o,`${CATS[o.cat].n}: ${o.name}, ${o.w}×${o.h} мм, ${qName(o.qk)} (замовлення №${o.id})`)); if(o.paid) lines.push([`Оплачено раніше (№${o.id})`,'','',-o.paid]); }
   if(!inv.o.length) lines.push([inv.t||'Поповнення балансу',1,'посл.',inv.s]);
-  const brand=$('#brand').textContent||'Друкарня';
-  w.document.write(`<!doctype html><html lang="uk"><head><meta charset="utf-8"><title>Рахунок ${inv.n}</title><style>body{font:14px/1.45 Inter,system-ui,sans-serif;color:#111;margin:24px;max-width:860px}h1{font-size:22px;margin:0}
-   .head{display:flex;justify-content:space-between;gap:24px;margin:16px 0}.head div{flex:1}.muted{color:#6b7280}table{border-collapse:collapse;width:100%;margin:12px 0}th,td{border:1px solid #d1d5db;padding:7px 10px;text-align:left}th{background:#f3f4f6}td.r,th.r{text-align:right}
-   .tot td{font-weight:700}.sign{margin-top:36px;display:flex;justify-content:space-between}@media print{button{display:none}body{margin:10mm}}</style></head><body>
-   <button onclick="print()" style="float:right;padding:8px 14px">Друкувати / PDF</button><h1>Рахунок на оплату № ${inv.n}</h1><div class="muted">від ${dstr(inv.d)}</div>
-   <div class="head"><div><b>Постачальник</b><br>${esc(brand)}<br><span class="muted">Реквізити (ЄДРПОУ, IBAN, адреса) — з налаштувань бренду</span></div><div><b>Покупець</b><br>${esc(c.co||c.n)}<br>${esc(c.ph)} · ${esc(c.em)}<br><span class="muted">клієнт №${c.id}</span></div></div>
-   <table><thead><tr><th>№</th><th>Найменування</th><th class="r">К-сть</th><th>Од.</th><th class="r">Сума, грн</th></tr></thead><tbody>
-   ${lines.map((l,i)=>`<tr><td>${i+1}</td><td>${esc(l[0])}</td><td class="r">${l[1]}</td><td>${l[2]}</td><td class="r">${fmt(l[3])}</td></tr>`).join('')}
-   <tr class="tot"><td colspan="4" class="r">До сплати</td><td class="r">${fmt(inv.s)}</td></tr></tbody></table>
-   <div class="muted">Без ПДВ. Рахунок дійсний 3 банківські дні. Друк починається після оплати або за погодженням з менеджером.</div>
-   <div class="sign"><div>Виписав: ${esc(ME().n)} ____________</div><div>${inv.paid?'<b>ОПЛАЧЕНО</b>':''}</div></div></body></html>`);
-  w.document.close();
+  openDoc('Рахунок '+inv.n,docHtml({kind:'inv',n:inv.n,d:inv.d,buyer:{n:c.co||c.n,ph:c.ph,em:c.em,id:c.id},lines,total:inv.s,paid:inv.paid,signer:ME().n}));
 }
 // документ «Замовлення на друк» (формат уточнюється за фото-референсом замовника)
 function badModal(o,id,v,pre=''){ modal(`<h3>Повернути макет на виправлення</h3><p class="muted" style="margin-top:0">${esc(o.files[+v].n)} · №${id}</p>
@@ -652,6 +638,26 @@ function printDoc(o){
 /* =====================================================================
    6. КЛІЄНТИ
    ===================================================================== */
+/* ---------- звернення: заявки на індивідуальне замовлення, відгуки, помилки, підтримка ---------- */
+const LT={custom:['Індивідуальне замовлення','indigo'],review:['Відгук','green'],bug:['Помилка на сайті','amber'],ticket:['Підтримка','blue']};
+function supportItems(){
+  const out=(DB.leads||[]).map(l=>({k:'l'+l.id,type:l.type,d:l.d,who:l.c?cl(l.c).n:l.n,ph:l.c?cl(l.c).ph:l.ph,c:l.c,t:l.t,file:l.file,st:l.st==='new'?'new':'done',ans:l.ans,ref:l}));
+  for(const [cid,list] of Object.entries(DB.tickets||{})) for(const t of list) out.push({k:'t'+t.id,type:'ticket',d:t.d,who:cl(+cid).n,ph:cl(+cid).ph,c:+cid,subj:t.subj,o:t.o,t:t.t||'',file:t.file,st:t.st==='Нове'?'new':'done',ans:t.ans,ref:t});
+  return out.sort((a,b)=>(a.st==='new'?0:1)-(b.st==='new'?0:1)||b.d-a.d);
+}
+const supportNew=()=>supportItems().filter(x=>x.st==='new').length;
+function pSupport(){
+  if(!can('clients')){ app.innerHTML=noAccess(); return; }
+  const list=supportItems().filter(x=>U.sup==='all'||(U.sup||'new')===x.st);
+  app.innerHTML=pageH('Звернення')+`<div class="seg">${[['new','Нові'],['done','Опрацьовані'],['all','Усі']].map(([k,n])=>`<a class="${(U.sup||'new')===k?'on':''}" data-act="supTab" data-v="${k}">${n}</a>`).join('')}</div>
+   <div style="display:grid;gap:12px">${list.map(x=>`<div class="card"><div class="card-h"><h2 style="font-size:15px"><span class="badge b-${LT[x.type][1]}">${LT[x.type][0]}</span> ${esc(x.subj||'')}</h2><span class="muted" style="font-size:12.5px">${dstr(x.d)} ${tstr(x.d)}</span></div>
+     <div style="font-size:13.5px;display:grid;gap:6px"><div><b>${esc(x.who||'—')}</b>${x.ph?' · '+esc(x.ph):''}${x.c?` · <a data-go="client/${x.c}">клієнт №${x.c}</a>`:' · не зареєстрований'}${x.o?` · <a data-go="order/${x.o}">замовлення №${x.o}</a>`:''}</div>
+      <div style="white-space:pre-wrap">${esc(x.t||'—')}</div>${x.file?`<div>${I.file} <a data-act="supFile" data-v="${x.k}">${esc(x.file.n)}</a> <span class="muted">${fsize(x.file.size)}</span></div>`:''}
+      ${x.ans?`<div class="alert info" style="margin:4px 0 0"><b>Відповідь</b>${esc(x.ans)}</div>`:''}</div>
+     <div class="btns" style="margin-top:10px">${x.st==='new'?`<button class="btn sm pri" data-act="supAns" data-v="${x.k}">${x.c?'Відповісти клієнту':'Записати результат дзвінка'}</button>${!x.c&&x.type==='custom'?`<button class="btn sm" data-act="supClient" data-v="${x.k}">Створити клієнта</button>`:''}<button class="btn sm" data-act="supDone" data-v="${x.k}">Опрацьовано</button>`:`<button class="btn sm" data-act="supReopen" data-v="${x.k}">Повернути в нові</button>`}</div></div>`).join('')||'<div class="card none">Звернень немає</div>'}</div>`;
+}
+const supFind=k=>supportItems().find(x=>x.k===k);
+function supClose(x,ans){ if(ans) x.ref.ans=ans; if(x.type==='ticket') x.ref.st=ans?'Відповідь надано':'Закрито'; else x.ref.st='done'; }
 function pClients(){
   if(!can('clients')){ app.innerHTML=noAccess(); return; }
   const q=U.q.trim().toLowerCase();
@@ -899,15 +905,18 @@ function sTexts(){
 }
 
 function sBrand(){
+  const b=CFG.brand=CFG.brand||{name:'НазваДрук',color:'',logo:''};
   return `<div class="card" style="max-width:640px"><div style="display:grid;gap:14px">
-    <div><div class="lbl">Назва</div><input class="inp" id="brandName" value="${esc($('#brand').textContent)}"></div>
-    <div><div class="lbl">Логотип</div><label class="drop">${I.upload}<b>Завантажити логотип</b>SVG або PNG<input type="file" accept="image/*"></label></div>
-    <div><div class="lbl">Основний колір</div><div style="display:flex;gap:10px;align-items:center"><input type="color" class="swatch" id="brandColor" value="${getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#4f46e5'}"><span class="muted" style="font-size:13px">Кнопки, посилання, акценти на сайті й в адмінці</span></div></div>
-    <div class="muted" style="font-size:13px">Телефони, режим роботи й адреса складу — теж тут (футер сайту).</div></div></div>`;
+    <div><div class="lbl">Назва</div><input class="inp" data-s="bName" value="${esc(b.name||'')}"></div>
+    <div><div class="lbl">Логотип</div><div style="display:flex;gap:12px;align-items:center">${b.logo?`<img src="${b.logo}" alt="Логотип" style="width:56px;height:56px;object-fit:contain;border:1px solid var(--line);border-radius:10px;background:#fff">`:''}
+     <label class="drop" style="flex:1">${I.upload}<b>${b.logo?'Замінити логотип':'Завантажити логотип'}</b>SVG або PNG<input type="file" accept="image/*" data-s="bLogo"></label>${b.logo?delBtn('sDelLogo','','Прибрати логотип'):''}</div></div>
+    <div><div class="lbl">Основний колір</div><div style="display:flex;gap:10px;align-items:center"><input type="color" class="swatch" data-s="bColor" value="${b.color||getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#4f46e5'}"><span class="muted" style="font-size:13px">Кнопки, посилання, акценти на сайті й в адмінці</span>${b.color?'<button class="btn sm" data-act="sResetColor">Стандартний</button>':''}</div></div>
+    <div class="muted" style="font-size:13px">Назва з’являється в шапці сайту, адмінки, у рахунках і актах.</div></div></div>`;
 }
-
 function pSettings(){
   if(!can('settings')){ app.innerHTML=noAccess(); return; }
+  // вибрана категорія могла зникнути (видалена тут або в іншій вкладці)
+  if(!CATS[U.scat]||CATS[U.scat].deleted||!ORDER.includes(U.scat)||CATS[U.scat].kind==='form'){ U.scat=ORDER.find(id=>CATS[id].kind!=='form'); U.svid=0; }
   const tabs=STABS.filter(t=>t[0]!=='levels'||can('levels'));
   const body={cats:sCats,mats:sMats,q:sQ,opts:sOpts,terms:sTerms,general:sGeneral,levels:sLevels,crm:sCrm,texts:sTexts,brand:sBrand}[U.stab]();
   app.innerHTML=pageH('Налаштування',`<span class="muted" style="font-size:12.5px;align-self:center">Зміни діють одразу і одразу видно на сайті</span>`)+
@@ -951,6 +960,8 @@ function settingsClick(a){
     case 'sDelTerm': TERMS[d.g].splice(i,1); break;
     case 'sAddVol': CFG.volume.push({q:(CFG.volume.at(-1).q||1)*2,d:0}); break;
     case 'sDelVol': CFG.volume.splice(i,1); break;
+    case 'sDelLogo': CFG.brand.logo=''; applyBrand(); break;
+    case 'sResetColor': CFG.brand.color=''; document.documentElement.style.removeProperty('--accent'); document.documentElement.style.removeProperty('--accent-2'); break;
     case 'sAddMach': CFG.machines.push({id:'m'+Date.now().toString(36),n:'Нова машина'}); break;
     case 'sDelMach': { const m=CFG.machines[i], n=ORD.filter(o=>o.mach===m.id&&o.st==='print').length; return ask(`Видалити машину «${m.n}»?${n?` ${n} замовл. у друці повернуться в чергу.`:''}`,()=>{ ORD.forEach(o=>{ if(o.mach===m.id&&o.st==='print'){ o.st='paid'; o.mach=null; } }); CFG.machines.splice(i,1); }); }
     case 'sAddCc': CFG.ccats.push({id:'cc'+Date.now().toString(36),n:'Нова категорія',k:1}); break;
@@ -996,6 +1007,8 @@ function settingsChange(t){
     case 'vq': CFG.volume[i].q=n; break; case 'vd': CFG.volume[i].d=(n||0)/100; break;
     case 'gmarkup': CFG.markup=(n||0)/100; break; case 'gmarginRoll': CFG.marginRoll=(n||0)/10; break; case 'gmarginSheet': CFG.marginSheet=(n||0)/10; break; case 'gleftoverMin': CFG.leftoverMin=(n||0)/10; break;
     case 'gpvhBase': CFG.pvhCut.base=n||0; break; case 'gpvhMm': CFG.pvhCut.perMm=n||0; break;
+    case 'bName': CFG.brand.name=v.trim()||'НазваДрук'; applyBrand(); break; case 'bColor': CFG.brand.color=v; applyBrand(); break;
+    case 'bLogo': if(t.files[0]) shrinkImg(t.files[0]).then(src=>{ CFG.brand.logo=src; applyBrand(); persist(); rr(); }); break;
     case 'machN': CFG.machines[i].n=v; break; case 'ccn': CFG.ccats[i].n=v; break; case 'cck': if(n>0) CFG.ccats[i].k=n/100; break;
     case 'rOn': CFG.remind.on=t.checked; redraw=true; break; case 'rDay': CFG.remind.onDay=t.checked; redraw=true; break; case 'rOver': CFG.remind.overdue=t.checked; redraw=true; break; case 'rEvery': CFG.remind.every=Math.max(0,n||0); redraw=true; break;
     case 'mAuto': CFG.msg.auto=t.checked; break; case 'mOn': CFG.msg[d.k].on=t.checked; break; case 'mV': CFG.msg[d.k].v=v; break;
@@ -1032,7 +1045,7 @@ function pStaff(){
 /* =====================================================================
    МАРШРУТИ, ДІЇ
    ===================================================================== */
-const PAGES={reports:pReports,dash:pDash,orders:pOrders,order:pOrder,prepress:pPrepress,production:pProduction,clients:pClients,client:pClient,money:pMoney,settings:pSettings,staff:pStaff};
+const PAGES={support:pSupport,reports:pReports,dash:pDash,orders:pOrders,order:pOrder,prepress:pPrepress,production:pProduction,clients:pClients,client:pClient,money:pMoney,settings:pSettings,staff:pStaff};
 function go(id){ try{ history.pushState(null,'','#'+id); }catch(e){} route(id); }
 function route(id){
   if(id==null) id=location.hash.slice(1)||'dash';
@@ -1130,6 +1143,16 @@ document.addEventListener('click',e=>{
     case 'combo': U.combo=!U.combo; rr(); break;
     case 'nmTgl': U.nm=a.checked; rr(); break;
     case 'printDoc': printDoc(o); break;
+    case 'supTab': U.sup=v; rr(); break;
+    case 'supDone': supClose(supFind(v)); rr(); break;
+    case 'supReopen': { const x=supFind(v); x.ref.st=x.type==='ticket'?'Нове':'new'; rr(); break; }
+    case 'supFile': { const x=supFind(v); if(x&&x.file) fileSave({id:0},x.file); break; }
+    case 'supAns': { const x=supFind(v); modal(`<h3>${x.c?'Відповідь клієнту':'Результат дзвінка'}</h3><p class="muted" style="margin-top:0">${esc(x.who)}${x.c?' — прийде в «Листування» кабінету':''}</p><textarea class="area" id="supT" style="min-height:110px"></textarea><div style="margin-top:12px"><button class="btn pri" data-act="supAnsGo" data-v="${v}">${x.c?'Надіслати':'Зберегти'}</button></div>`); break; }
+    case 'supAnsGo': { const x=supFind(v), t=$('#supT').value.trim(); if(!t){ $('#supT').focus(); return; }
+      if(x.c){ (DB.gen[x.c]=DB.gen[x.c]||[]).push({d:new Date(),from:'Підтримка',t:(x.type==='ticket'?`Звернення #${x.ref.id} «${x.subj}»: `:'')+t}); }
+      supClose(x,t); closeModal(); rr(); break; }
+    case 'supClient': { const x=supFind(v), nid=Math.max(...CL.map(c=>c.id))+1; CL.push({id:nid,n:x.who,ph:x.ph||'—',em:'—',type:'person',co:'',cat:CFG.ccats[0].id,level:CFG.levels[0].id,since:new Date(),pass:'k'+Math.random().toString(36).slice(2,8),by:meId});
+      x.ref.c=nid; go('client/'+nid); break; }
     case 'fView': { const f=o.files[+v]; if(!f) break; const i=+v, chk=can('prepress')&&f.st==='wait'&&['new','check','fix'].includes(o.st);
       openViewer(o,f,diskName(o,f,i),chk?`<button class="btn ok" data-act="fOk" data-id="${o.id}" data-v="${i}">Перевірено</button><button class="btn bad" data-act="vwBad" data-id="${o.id}" data-v="${i}">Повернути з зауваженнями</button>`:''); break; }
     case 'vwBad': badModal(o,id,v,((VW&&VW.chk.warn)||[]).join('. ')); break;
@@ -1209,8 +1232,6 @@ document.addEventListener('change',e=>{
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.id==='oq'||t.id==='cq'){ U.q=t.value; rr(); const n=$('#'+t.id); n.focus(); n.setSelectionRange(n.value.length,n.value.length); }
-  if(t.id==='brandName') $('#brand').textContent=t.value||'Назва';
-  if(t.id==='brandColor'){ document.documentElement.style.setProperty('--accent',t.value); document.documentElement.style.setProperty('--accent-2',t.value); }
 });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); if(e.key==='Enter'&&['lgLogin','lgPass'].includes(e.target.id)) document.querySelector('[data-act=login]')?.click(); });
 
@@ -1224,7 +1245,7 @@ document.addEventListener('dragover',e=>{ const col=e.target.closest&&e.target.c
 document.addEventListener('drop',e=>{ const col=e.target.closest&&e.target.closest('[data-drop]'); if(!col||DRAG==null) return; e.preventDefault(); const o=ord(DRAG), [b,k]=col.dataset.drop.split(':'); DRAG=null;
   if(!o) return; if(b==='crm') moveCrm(o,k); else moveProd(o,k); persist(); });
 window.addEventListener('storage',e=>{ if(e.key===DB_KEY){ bind(); rr(); } });
-route();
+applyBrand(); route();
 </script>
 </body>
 </html>

@@ -25,6 +25,7 @@ const CFG = {
   printMax:{eco:1600,eco2:1600,uv:1600,uvw:1600,uvwc:1600},
   overlap:20,
   // канали надсилання рахунків (бізнес-акаунти; у тестовій версії відправка імітується)
+  brand:{name:'НазваДрук',color:'',logo:''},
   msg:{auto:true,email:{on:true,v:'office@druk.test'},tg:{on:true,v:'@druk_orders_bot'},wa:{on:true,v:'+380 44 000 00 00'},vb:{on:false,v:''}},       // нахльост при поділі на частини, мм
   levels:[{id:'retail',name:'Базовий',d:0},{id:'regular',name:'Постійний',d:0},{id:'partner',name:'Партнер',d:0},{id:'agency',name:'Агенція',d:0}],
   volume:[{q:1,d:0}],  // знижка від тиражу
@@ -519,6 +520,7 @@ function loadDB(){
   if(!db||db.v!==5) return seedDB();
   applyCatalog(db.cat);
   for(const k of ['gen','bon','tickets']) db[k]=db[k]||{};
+  db.leads=db.leads||[];
   // оновлення збережених даних: роль «Поліграфіст» додано пізніше
   if(!db.mig1){ db.mig1=1; if(!db.roles.some(r=>r.id==='printer')){ db.roles.push({id:'printer',n:'Друкар',perms:['production']}); db.staff.push({...({id:8,login:'printer@druk.test',pass:'print123',n:'Богдан Кравець',role:'printer',online:true,seen:dt(0,8,45)}),id:Math.max(...db.staff.map(x=>x.id))+1}); } }
   return db;
@@ -548,6 +550,30 @@ async function fileOpen(o,f,name){ const b=await fileBlob(o,f), u=URL.createObje
   fileSave(o,f,name,b); }
 async function fileSave(o,f,name,b){ b=b||await fileBlob(o,f); const a=document.createElement('a'); a.href=URL.createObjectURL(b);
   a.download=(name||f.n).replace(/\.[a-z0-9]+$/i,'')+(f.fid?(f.n.match(/\.[a-z0-9]+$/i)||[''])[0]:'.svg'); document.body.appendChild(a); a.click(); a.remove(); }
+/* ---------- документи: рахунок і акт (сторінка для друку / збереження в PDF) ---------- */
+function openDoc(title,body){
+  const w=window.open('','_blank'); if(!w){ alert('Дозвольте спливаючі вікна, щоб відкрити документ.'); return; }
+  w.document.write(`<!doctype html><html lang="uk"><head><meta charset="utf-8"><title>${esc(title)}</title><style>body{font:14px/1.45 Inter,system-ui,sans-serif;color:#111;margin:24px;max-width:860px}h1{font-size:22px;margin:0}
+   .head{display:flex;justify-content:space-between;gap:24px;margin:16px 0}.head div{flex:1}.muted{color:#6b7280}table{border-collapse:collapse;width:100%;margin:12px 0}th,td{border:1px solid #d1d5db;padding:7px 10px;text-align:left}th{background:#f3f4f6}td.r,th.r{text-align:right}
+   .tot td{font-weight:700}.sign{margin-top:36px;display:flex;justify-content:space-between;gap:24px}@media print{button{display:none}body{margin:10mm}}</style></head><body>
+   <button onclick="print()" style="float:right;padding:8px 14px">Друкувати / зберегти PDF</button>${body}</body></html>`); w.document.close();
+}
+// doc: {kind:'inv'|'act', n, d, buyer:{n,ph,em,id}, lines:[[назва,к-сть,од.,сума]], total, paid, signer, period}
+function docHtml(x){
+  const brand=(CFG.brand&&CFG.brand.name)||'Друкарня', inv=x.kind==='inv';
+  return `<h1>${inv?'Рахунок на оплату':'Акт виконаних робіт'} № ${esc(x.n)}</h1><div class="muted">від ${dstr(x.d)}${x.period?' · за '+esc(x.period):''}</div>
+   <div class="head"><div><b>${inv?'Постачальник':'Виконавець'}</b><br>${esc(brand)}<br><span class="muted">Реквізити (ЄДРПОУ, IBAN, адреса) — з налаштувань бренду</span></div><div><b>${inv?'Покупець':'Замовник'}</b><br>${esc(x.buyer.n)}<br>${esc(x.buyer.ph||'')}${x.buyer.em?' · '+esc(x.buyer.em):''}<br><span class="muted">клієнт №${x.buyer.id}</span></div></div>
+   <table><thead><tr><th>№</th><th>Найменування</th><th class="r">К-сть</th><th>Од.</th><th class="r">Сума, грн</th></tr></thead><tbody>
+   ${x.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${esc(l[0])}</td><td class="r">${l[1]}</td><td>${l[2]}</td><td class="r">${fmt(l[3])}</td></tr>`).join('')}
+   <tr class="tot"><td colspan="4" class="r">${inv?'До сплати':'Разом'}</td><td class="r">${fmt(x.total)}</td></tr></tbody></table>
+   <div class="muted">Без ПДВ.${inv?' Рахунок дійсний 3 банківські дні. Друк починається після оплати або за погодженням з менеджером.':' Роботи виконано в повному обсязі, сторони претензій не мають.'}</div>
+   <div class="sign"><div>${inv?'Виписав':'Виконавець'}: ${esc(x.signer||'')} ____________</div><div>${inv?(x.paid?'<b>ОПЛАЧЕНО</b>':''):'Замовник ____________'}</div></div>`;
+}
+function orderLines(o,name){ const L=[[name,o.tir*(o.kits||1),'шт',o.sum]]; if(o.rework) L.push([`Доопрацювання макета (№${o.id})`,1,'посл.',o.rework]); if(o.dlv) L.push([`Доставка Новою Поштою (№${o.id})`,1,'посл.',o.dlv]); return L; }
+// бренд з налаштувань: назва, колір, логотип — на сайті й в адмінці
+function applyBrand(){ const b=CFG.brand||{}; if(b.name) document.querySelectorAll('.bn,#brand').forEach(n=>{ n.textContent=b.name; });
+  if(b.color){ document.documentElement.style.setProperty('--accent',b.color); document.documentElement.style.setProperty('--accent-2',b.color); }
+  document.querySelectorAll('.logo i').forEach(i=>{ i.style.backgroundImage=b.logo?`url(${b.logo})`:''; i.classList.toggle('img',!!b.logo); }); }
 // повна сума замовлення: друк + доопрацювання макета + доставка (окремі статті)
 const oTotal=o=>o.sum+(o.rework||0)+(o.dlv||0);
 // макети готові: є хоч один, і всі актуальні (не замінені) перевірені
@@ -659,5 +685,5 @@ function seedDB(){
   const bon={10245:[{d:dt(-20,10,0),t:'Вітальні бонуси за реєстрацію',s:50},{d:dt(-12,18,0),t:'Нараховано за замовлення',o:47950,s:69.32},{d:dt(-11,18,0),t:'Нараховано за замовлення',o:47988,s:35.64},
     {d:dt(-3,10,25),t:'Списано при оплаті',o:48152,s:-62.21},{d:dt(-2,18,0),t:'Нараховано за замовлення',o:48101,s:34.39},{d:dt(-1,18,0),t:'Нараховано за замовлення',o:48152,s:57.36}]};
   const tickets={10245:[{id:311,d:dt(-13,11,0),subj:'Відтінок синього на банері',o:47950,st:'Відповідь надано'},{id:298,d:dt(-30,15,0),subj:'Як підготувати макет для висічки?',st:'Закрито'}]};
-  return {v:5,mig1:1,orders:ORD,clients:CL,ledger:LEDGER,inv:INV,staff:STAFF,roles:RL,texts:TEXTS,ink:INK,gen:{},bon,tickets};
+  return {v:5,mig1:1,leads:[{id:1,d:dt(-1,15,20),type:'custom',n:'Ірина Савчук',ph:'+380 63 111 22 33',t:'Потрібно 12 табличок на двері з ПВХ 3 мм і банер 6×3 м на фасад з монтажем. Терміни — до кінця місяця.',st:'new'}],orders:ORD,clients:CL,ledger:LEDGER,inv:INV,staff:STAFF,roles:RL,texts:TEXTS,ink:INK,gen:{},bon,tickets};
 }

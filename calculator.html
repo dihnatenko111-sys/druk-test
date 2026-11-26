@@ -6,19 +6,19 @@
 <title>Широкоформатний друк</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=17">
+<link rel="stylesheet" href="app.css?v=18">
 </head>
 <body>
 
 <header><div class="top">
-  <div class="logo"><i></i>НазваДрук</div>
+  <div class="logo"><i></i><span class="bn">НазваДрук</span></div>
   <nav class="menu" id="menu"></nav>
 </div></header>
 
 <main class="wrap" id="app"></main>
 
 <footer><div class="wrap">
-  <div><b>© 2026 НазваДрук</b><br><a style="color:#a5b4fc" data-go="page/offer">Публічна оферта</a> / <a style="color:#a5b4fc" data-go="page/terms">Умови використання</a></div>
+  <div><b>© 2026 <span class="bn">НазваДрук</span></b><br><a style="color:#a5b4fc" data-go="page/offer">Публічна оферта</a> / <a style="color:#a5b4fc" data-go="page/terms">Умови використання</a></div>
   <div><b>Режим роботи</b>
     <table><tr><td></td><td>офіс</td><td>склад</td></tr>
       <tr><td>Понеділок – П'ятниця</td><td>9:00 — 19:30</td><td>9:00 — 18:00</td></tr>
@@ -32,11 +32,11 @@
 
 <script>
 // нова версія сайту: браузер міг узяти сторінку з кешу — перевіряємо номер збірки й перезавантажуємо
-(function(){ var B='17'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
+(function(){ var B='18'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
   if(v&&v!==B&&u.searchParams.get('b')!==v){ u.searchParams.set('b',v); location.replace(u.toString()); } }).catch(function(){}); })();
 </script>
-<script src="shared.js?v=17"></script>
-<script src="viewer.js?v=17"></script>
+<script src="shared.js?v=18"></script>
+<script src="viewer.js?v=18"></script>
 <script>
 /* =====================================================================
    РЕНДЕР
@@ -76,9 +76,10 @@ function renderCustom(){
   app.innerHTML=crumbs('Індивідуальне замовлення')+`<div class="card title-card"><h1>Індивідуальне замовлення</h1></div>
    <div class="card"><p style="margin-top:0;color:var(--muted)">Опишіть завдання — менеджер прорахує комплексне або нестандартне замовлення.</p>
    <div class="card-h"><h2>Форма замовлення</h2></div>
-   <div class="form"><div><div class="lbl">Ім'я</div><input class="inp"></div><div><div class="lbl">Телефон</div><input class="inp" type="tel"></div>
-   <div><div class="lbl">Опишіть ваше завдання із зазначенням тиражів, технологій, термінів та всього, що допоможе нам максимально підготуватися до розмови з вами</div><textarea></textarea></div>
-   <div><button class="btn">Завантажити файл</button></div><div><button class="btn pri" data-toast="Тестова версія: заявка не надсилається">Надіслати</button></div></div></div>`;
+   <div class="form"><div><div class="lbl">Ім'я</div><input class="inp" id="cuN" value="${esc(AUTH?ME.name:'')}" autocomplete="name"></div><div><div class="lbl">Телефон</div><input class="inp" id="cuP" type="tel" value="${esc(AUTH?ME.phone:'')}" autocomplete="tel"></div>
+   <div><div class="lbl">Опишіть ваше завдання із зазначенням тиражів, технологій, термінів та всього, що допоможе нам максимально підготуватися до розмови з вами</div><textarea id="cuT"></textarea></div>
+   <div><label class="btn" style="display:inline-flex;align-items:center;gap:6px">${I.upload}Завантажити файл<input type="file" hidden id="cuF"></label> <span class="muted" id="cuFn" style="font-size:13px"></span></div>
+   <div id="cuErr" style="color:var(--bad);font-size:13px;min-height:18px"></div><div><button class="btn pri" data-act="cuSend">Надіслати</button></div></div></div>`;
 }
 function renderProduct(){
   const c=curCat();
@@ -303,6 +304,7 @@ function openInfo(t){
   else if(t==='Терміни друку') b+=`<table>${TERMS[c.terms].map(x=>`<tr><td>${x.n} ${x.s}</td><td>${ready(x).txt}</td></tr>`).join('')}</table>`;
   else if(t==='Якість друку') b+=`<table>${c.q.map(k=>`<tr><td><b>${plain(Q[k].n)}</b></td><td>${Q[k].t.replace(/\n/g,'<br>')}</td></tr>`).join('')}</table>`;
   else if(t==='Матеріали') b+=`<table>${c.mats.map(m=>`<tr><td><b>${m.n}</b></td><td>${m.t}${m.na?' — <span style="color:var(--bad)">немає в наявності</span>':''}</td></tr>`).join('')}</table>`;
+  else if(t==='Ваш відгук'||t==='Знайшли помилку?'){ const bug=t!=='Ваш відгук'; b+=`<p class="muted" style="margin-top:0">${bug?'Опишіть, що працює не так — виправимо.':'Що сподобалось і що покращити?'}</p>${AUTH?'':'<div class="lbl">Ваше ім’я або телефон</div><input class="inp" id="fbN" style="margin-bottom:10px">'}<textarea class="area" id="fbT" style="min-height:110px"></textarea><div style="margin-top:12px"><button class="btn pri" data-act="fbSend" data-v="${bug?'bug':'review'}">Надіслати</button></div>`; modal(b); return; }
   else if(!infoText(t)) b+=`<p style="color:var(--muted)">Текст готується.</p>`;
   b+=infoText(t);
   modal(b);
@@ -334,7 +336,7 @@ function openOrder(key){
 function renderDrawer(){
   const d=$('#drawer'); if(!d.classList.contains('on')) return;
   let h=`<div style="display:flex;justify-content:space-between;align-items:center"><h3>Внутрішня інформація</h3><button class="ghost" data-dclose>✕</button></div>
-   <p>Клієнт цього не бачить. У робочій версії налаштування — в адмінці, а розкладка — у черзі виробництва.</p>
+   <p>Клієнт цього не бачить. Постійні налаштування — в адмінці, розкладка — у виробництві.</p>
    <div class="dset">
     <label>Рівень клієнта (призначає адмін)</label><select id="dLevel">${CFG.levels.map(l=>`<option value="${l.id}" ${l.id===CFG.level?'selected':''}>${l.name}${l.d?' −'+l.d*100+'%':''}</option>`).join('')}</select>
     <label>Націнка на обрізок, %</label><input id="dMarkup" type="number" value="${CFG.markup*100}">
@@ -549,11 +551,11 @@ function setAuth(id){ CID=id||null; AUTH=!!CID; try{ CID?sessionStorage.setItem(
 const normLogin=x=>{ x=String(x).trim().toLowerCase(); const d=x.replace(/\D/g,''); return x.includes('@')?x:d.slice(-10).padStart(10,'0'); };
 const invNo=()=>'СФ-'+(3122+DB.inv.length+INV.length-INV0);
 function pull(){
-  DB=loadDB(); setTimeout(renderBehalf,0);
+  DB=loadDB(); setTimeout(renderBehalf,0); setTimeout(applyBrand,0);
   const c=CID&&DB.clients.find(x=>x.id===CID);
   ORDERS=[]; MSGS=[]; REPLIES=[]; TX=[]; INV=[]; BON=[]; TICKETS=[]; INV0=0; CFG.ccat='retail';
   if(!c){ CID=null; AUTH=false; BY=null; ME={id:0,name:'',phone:'',email:'',type:'person',company:'',code:'',addr:'',recips:[],notify:{email:true,sms:false,news:false}}; CFG.level=CFG.levels[0].id; return; }
-  ME={id:c.id,name:c.n,phone:c.ph||'',email:c.em||'',type:c.type||'person',company:c.co||'',code:c.code||'',addr:c.addr||'',recips:c.recips||[],notify:c.notify||{email:true,sms:false,news:false}};
+  ME={id:c.id,name:c.n,phone:c.ph||'',email:c.em||'',type:c.type||'person',company:c.co||'',code:c.code||'',iban:c.iban||'',addr:c.addr||'',recips:c.recips||[],notify:c.notify||{email:true,sms:false,news:false}};
   CFG.level=CFG.levels.some(l=>l.id===c.level)?c.level:CFG.levels[0].id; CFG.ccat=CFG.ccats.some(x=>x.id===c.cat)?c.cat:'retail'; LCACHE.clear();
   const mine=DB.orders.filter(o=>o.c===CID).sort((a,b)=>b.d-a.d);
   ORDERS=mine.map(o=>({id:o.id,d:o.d,cat:o.cat,name:o.name,q:Q[o.qk]?plain(Q[o.qk].n):(o.qTxt||''),size:o.sizeTxt||`${o.w} × ${o.h} мм`,tir:o.tir,kits:o.kits||1,opts:o.opts||[],term:o.term,ready:o.ready,
@@ -569,7 +571,7 @@ function pull(){
 }
 function push(){
   if(!AUTH||!DB) return; const c=DB.clients.find(x=>x.id===CID); if(!c) return;
-  Object.assign(c,{n:ME.name,ph:ME.phone,em:ME.email,type:ME.type,co:ME.company,code:ME.code,addr:ME.addr,recips:ME.recips,notify:ME.notify});
+  Object.assign(c,{n:ME.name,ph:ME.phone,em:ME.email,type:ME.type,co:ME.company,code:ME.code,iban:ME.iban||'',addr:ME.addr,recips:ME.recips,notify:ME.notify});
   for(const o of ORDERS){ let r=DB.orders.find(x=>x.id===o.id);
     if(!r){ const x=o._x||{}, C0=CATS[o.cat], z=(x.sizes&&x.sizes[0])||{w:0,h:0}; // нове замовлення з сайту — потрапляє в CRM
       r={id:o.id,c:CID,d:o.d,cat:o.cat,mi:x.mi||0,mat:C0&&C0.mats?C0.mats[x.mi||0]:null,qk:x.qk,w:Math.round(z.w),h:Math.round(z.h),sizes:x.sizes,pwm:x.pwm||'p',sizeTxt:o.size,tir:o.tir,kits:o.kits,term:o.term,ready:o.ready,
@@ -692,7 +694,7 @@ function pOrder(id){
     <div class="card"><div class="card-h"><h2>Доставка</h2></div><dl class="kv2" style="grid-template-columns:100px minmax(0,1fr)">
      <dt>Спосіб</dt><dd>${DL.n}</dd>
      ${dl.t==='self'?`<dt>Адреса</dt><dd>${WAREHOUSE}</dd><dt>Склад</dt><dd>Пн–Пт 9:00–18:00<br>Сб 9:00–18:00</dd>`
-       :`<dt>Отримувач</dt><dd>${recipTxt(o)}</dd><dt>ТТН</dt><dd>${dl.ttn?`${dl.ttn}<br><a data-toast="Тестова версія: відкриється відстеження на сайті Нової Пошти">Відстежити</a>`:'<span class="muted">з’явиться після відправлення</span>'}</dd>`}
+       :`<dt>Отримувач</dt><dd>${recipTxt(o)}</dd><dt>ТТН</dt><dd>${dl.ttn?`${dl.ttn}<br><a href="https://novaposhta.ua/tracking/?cargo_number=${encodeURIComponent(dl.ttn)}" target="_blank" rel="noopener">Відстежити на сайті Нової Пошти</a>`:'<span class="muted">з’явиться після відправлення</span>'}</dd>`}
     </dl></div>
   </div></div>`;
 }
@@ -787,9 +789,9 @@ function pFinance(){
     ${tx.map(x=>`<tr><td>${dstr(x.d)}<small>${tstr(x.d)}</small></td><td>${x.t}${x.o?' '+oLink(x.o):''}</td><td class="r ${x.s>0?'plus':'minus'}">${sign(x.s)}</td><td class="r">${fmt(x.after)}</td></tr>`).join('')}</tbody></table>`;
   if(C.ftab==='inv') body=`<table class="tbl"><thead><tr><th>Рахунок</th><th>Дата</th><th>За що</th><th>Статус</th><th class="r">Сума, грн</th><th></th></tr></thead><tbody>
     ${INV.map(v=>`<tr><td><b>${v.n}</b></td><td>${dstr(v.d)}</td><td>${v.o.length?'Замовлення '+v.o.map(oLink).join(', '):v.t}</td><td>${v.paid?'<span class="badge b-green">Оплачено</span>':'<span class="badge b-amber">Очікує оплати</span>'}</td><td class="r">${fmt(v.s)}</td>
-      <td class="r"><a data-toast="Тестова версія: завантаження PDF рахунку ${v.n}">PDF</a></td></tr>`).join('')||`<tr><td colspan="6" class="none">Рахунків немає</td></tr>`}</tbody></table>`;
+      <td class="r"><a data-act="invDocC" data-v="${esc(v.n)}">PDF</a></td></tr>`).join('')||`<tr><td colspan="6" class="none">Рахунків немає</td></tr>`}</tbody></table>`;
   if(C.ftab==='acts') body=`<table class="tbl"><thead><tr><th>Період</th><th>Документ</th><th class="r">Сума, грн</th><th></th></tr></thead><tbody>
-    ${ACTS.map(a=>`<tr><td>${MONTHS[a.m]} ${a.y}</td><td>Акт виконаних робіт</td><td class="r">${fmt(a.s)}</td><td class="r"><a data-toast="Тестова версія: завантаження PDF акту">PDF</a></td></tr>`).join('')}</tbody></table>`;
+    ${ACTS.map(a=>`<tr><td>${MONTHS[a.m]} ${a.y}</td><td>Акт виконаних робіт</td><td class="r">${fmt(a.s)}</td><td class="r"><a data-act="actDocC" data-v="${a.y}-${a.m}">PDF</a></td></tr>`).join('')}</tbody></table>`;
   app.innerHTML=pageH('Фінанси',`<button class="btn" data-act="mkinv">Рахунок на поповнення</button><button class="btn pri" data-act="topup">Поповнити баланс</button>`)+
   `<div class="stats"><div class="stat"><div class="k">Баланс</div><div class="v">${fmt(bal)} <small>грн</small></div><div class="s">Списується при оплаті замовлень</div></div>
     <div class="stat"><div class="k">До сплати</div><div class="v">${fmt(totalDue)} <small>грн</small></div><div class="s">${unpaid.length?`${unpaid.length} замовл.: ${unpaid.map(o=>oLink(o.id)).join(', ')}`:'Усе оплачено'}</div></div>
@@ -835,16 +837,16 @@ function pProfile(){
   app.innerHTML=pageH(`Профіль <span class="badge b-indigo">Клієнт №${ME.id}</span>`,`<button class="btn pri" data-act="psave">Зберегти</button>`)+
   `<div class="cols"><div>
    <div class="card"><div class="card-h"><h2>Контактні дані</h2></div><div class="fgrid">
-     <div class="full"><div class="lbl">Ім’я та прізвище</div><input class="inp" value="${esc(ME.name)}"></div>
-     <div><div class="lbl">Телефон</div><input class="inp" type="tel" value="${esc(ME.phone)}"></div>
-     <div><div class="lbl">Email</div><input class="inp" type="email" value="${esc(ME.email)}"></div></div></div>
+     <div class="full"><div class="lbl">Ім’я та прізвище</div><input class="inp" id="pfN" value="${esc(ME.name)}" autocomplete="name"></div>
+     <div><div class="lbl">Телефон</div><input class="inp" id="pfP" type="tel" value="${esc(ME.phone)}" autocomplete="tel"></div>
+     <div><div class="lbl">Email</div><input class="inp" id="pfE" type="email" value="${esc(ME.email)}" autocomplete="email"></div></div></div>
    <div class="card"><div class="card-h"><h2>Реквізити для рахунків</h2></div>
      <div class="rcards" style="margin-bottom:14px">${[['person','Фізична особа'],['fop','ФОП'],['company','Юридична особа']].map(([k,n])=>`<a class="rcard ${ME.type===k?'on':''}" data-act="ptype" data-v="${k}"><b>${n}</b></a>`).join('')}</div>
      ${ME.type==='person'?'<p class="muted" style="margin:0;font-size:13px">Рахунки й акти виписуються на ім’я з контактних даних.</p>':`<div class="fgrid">
-      <div class="full"><div class="lbl">${ME.type==='fop'?'ПІБ ФОП':'Назва організації'}</div><input class="inp" value="${esc(ME.company)}"></div>
-      <div><div class="lbl">${ME.type==='fop'?'ІПН':'Код ЄДРПОУ'}</div><input class="inp" value="${esc(ME.code)}"></div>
-      <div><div class="lbl">IBAN</div><input class="inp" placeholder="UA…"></div>
-      <div class="full"><div class="lbl">Юридична адреса</div><input class="inp" value="${esc(ME.addr)}"></div></div>`}</div>
+      <div class="full"><div class="lbl">${ME.type==='fop'?'ПІБ ФОП':'Назва організації'}</div><input class="inp" id="pfCo" value="${esc(ME.company)}"></div>
+      <div><div class="lbl">${ME.type==='fop'?'ІПН':'Код ЄДРПОУ'}</div><input class="inp" id="pfCode" value="${esc(ME.code)}" inputmode="numeric"></div>
+      <div><div class="lbl">IBAN</div><input class="inp" id="pfIban" value="${esc(ME.iban||'')}" placeholder="UA…"></div>
+      <div class="full"><div class="lbl">Юридична адреса</div><input class="inp" id="pfAddr" value="${esc(ME.addr)}"></div></div>`}</div>
    <div class="card"><div class="card-h"><h2>Отримувачі (Нова Пошта)</h2><button class="btn" data-act="radd">+ Додати</button></div>
      <div class="tbl-wrap"><table class="tbl" style="min-width:520px"><thead><tr><th>Отримувач</th><th>Телефон</th><th>Місто, відділення</th><th></th></tr></thead><tbody>
      ${ME.recips.map((r,i)=>`<tr><td>${esc(r.n)}${i===0?' <span class="badge b-gray">основний</span>':''}</td><td>${esc(r.ph)}</td><td>${esc(r.city)}, ${esc(r.wh)}</td><td class="r"><a data-act="rdel" data-id="${i}">Видалити</a></td></tr>`).join('')}</tbody></table></div></div>
@@ -852,12 +854,12 @@ function pProfile(){
    <div class="card"><div class="card-h"><h2>Ваш рівень</h2></div><div class="stat" style="box-shadow:none;border:0;padding:0"><div class="v" style="font-size:22px">${lv.name}</div>
      <div class="s">${lv.d?`Знижка ${lv.d*100}% на всі замовлення — уже врахована в цінах калькулятора.`:'Базові ціни. Рівень призначає менеджер.'}</div></div></div>
    <div class="card"><div class="card-h"><h2>Сповіщення</h2></div><div style="display:grid;gap:10px">
-     <label class="check"><input type="checkbox" ${ME.notify.email?'checked':''}>Дублювати повідомлення на email</label>
-     <label class="check"><input type="checkbox" ${ME.notify.sms?'checked':''}>SMS про готовність і відправлення</label>
-     <label class="check"><input type="checkbox" ${ME.notify.news?'checked':''}>Новини та акції</label></div></div>
+     <label class="check"><input type="checkbox" data-nf="email" ${ME.notify.email?'checked':''}>Дублювати повідомлення на email</label>
+     <label class="check"><input type="checkbox" data-nf="sms" ${ME.notify.sms?'checked':''}>SMS про готовність і відправлення</label>
+     <label class="check"><input type="checkbox" data-nf="news" ${ME.notify.news?'checked':''}>Новини та акції</label><span class="muted" style="font-size:12px">Зберігається одразу.</span></div></div>
    <div class="card"><div class="card-h"><h2>Пароль</h2></div><div style="display:grid;gap:10px">
-     <input class="inp" type="password" placeholder="Поточний пароль" autocomplete="current-password"><input class="inp" type="password" placeholder="Новий пароль" autocomplete="new-password">
-     <button class="btn" data-toast="Тестова версія: пароль не змінюється">Змінити пароль</button></div></div>
+     <input class="inp" id="pwOld" type="password" placeholder="Поточний пароль" autocomplete="current-password"><input class="inp" id="pwNew" type="password" placeholder="Новий пароль (від 6 символів)" autocomplete="new-password">
+     <div id="pwMsg" style="font-size:13px;min-height:18px"></div><button class="btn" data-act="pwSave">Змінити пароль</button></div></div>
   </div></div>`;
 }
 
@@ -889,7 +891,7 @@ function pSupport(){
      <div class="full"><div class="lbl">Повідомлення</div><textarea class="area" id="tkText" style="min-height:110px" placeholder="Опишіть питання — менеджер відповість у «Листуванні»"></textarea></div>
      <div class="full" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><label class="btn" style="display:inline-flex;align-items:center;gap:6px">${I.upload}Прикріпити файл<input type="file" hidden id="tkFile"></label><span class="muted" id="tkFn" style="font-size:13px"></span><span class="grow"></span><button class="btn pri" data-act="tksend">Надіслати</button></div></div></div>
    <div class="card flush"><div class="bar"><b>Мої звернення</b></div><div class="tbl-wrap"><table class="tbl" style="min-width:520px"><thead><tr><th>№</th><th>Тема</th><th>Дата</th><th>Стан</th></tr></thead><tbody>
-     ${TICKETS.map(t=>`<tr><td>#${t.id}</td><td>${esc(t.subj)}${t.o?`<small>Замовлення №${t.o}</small>`:''}</td><td>${dstr(t.d)}</td><td><span class="badge b-${t.st==='Закрито'?'gray':t.st==='Нове'?'amber':'green'}">${t.st}</span></td></tr>`).join('')}</tbody></table></div></div>
+     ${TICKETS.map(t=>`<tr><td>#${t.id}</td><td>${esc(t.subj)}${t.o?`<small>Замовлення №${t.o}</small>`:''}${t.ans?`<small style="color:var(--ink)">Відповідь: ${esc(t.ans)}</small>`:''}</td><td>${dstr(t.d)}</td><td><span class="badge b-${t.st==='Закрито'?'gray':t.st==='Нове'?'amber':'green'}">${t.st}</span></td></tr>`).join('')}</tbody></table></div></div>
    <div class="card faq"><div class="card-h"><h2>Часті питання</h2></div>${FAQ.map(([q,a])=>`<details><summary>${q}</summary><p>${a}</p></details>`).join('')}</div>
   </div><div class="sticky">
    <div class="card"><div class="card-h"><h2>Контакти</h2></div><div class="contacts"><div class="big">0 800 00-00-00</div><div>+380 (00) 000-00-00<br>+380 (00) 000-00-00</div>
@@ -916,7 +918,7 @@ function pLogin(){
     ${reg?`<label class="check" style="font-size:13px"><input type="checkbox" id="lgOffer">Погоджуюсь з <a data-go="page/offer">публічною офертою</a></label>`:''}
     <div id="lgErr" style="color:var(--bad);font-size:13px;min-height:18px"></div>
     <button class="btn pri" style="height:44px" data-act="${reg?'register':'login'}">${reg?'Зареєструватися':'Увійти'}</button>
-    ${reg?'':'<a style="text-align:center;font-size:13px" data-toast="Тестова версія: відновлення пароля через SMS або email">Забули пароль?</a>'}</div></div>
+    ${reg?'':'<a style="text-align:center;font-size:13px" data-act="forgot">Забули пароль?</a>'}</div></div>
    <div class="card" style="font-size:13px;border-style:dashed"><b>Тестовий доступ клієнта</b><br>Логін: olena@example.com або 067 123 45 67<br>Пароль: client123
     <div class="muted" style="margin-top:6px">Тестова версія: дані зберігаються в цьому браузері.</div></div></div>`;
 }
@@ -966,12 +968,15 @@ document.addEventListener('click',e=>{
     case 'dopay': payModal(a.dataset.ids.split(',').map(Number),v); break;
     case 'invoice': { const o=ordById(id), ex=INV.find(x=>x.o.includes(id));
       if(ex) toast(`Рахунок ${ex.n} уже є — «Фінанси → Рахунки».`); else if(isPaid(o)) toast('Замовлення оплачене — рахунок і акт будуть у розділі «Фінанси».'); else doPay([id],'inv'); break; }
-    case 'repeat': { const o=ordById(id); toast(`Відкриваємо калькулятор «${CATS[o.cat].n}». У робочій версії параметри замовлення №${id} підставляться автоматично.`); setTimeout(()=>{ closeModal(); go(o.cat); },1400); break; }
+    case 'repeat': { const o=ordById(id), r=DB.orders.find(x=>x.id===id)||{}, c=CATS[o.cat]; if(!c||c.kind==='form'){ go(''); break; } go(o.cat);
+      const sz=(r.sizes&&r.sizes.length?r.sizes:[{w:r.w,h:r.h}]).filter(z=>z.w&&z.h); if(sz.length) S.sizes=sz.map(z=>({w:Math.round(z.w),h:Math.round(z.h)}));
+      const mi=c.mats.findIndex(m=>m.n===o.name); S.f.mats=new Set(mi>=0?[mi]:[]); if(r.qk&&c.q.includes(r.qk)) S.f.q=new Set([r.qk]); if(o.tir&&!S.tir.includes(o.tir)) S.tir=[o.tir,...S.tir.slice(0,5)].sort((a,b)=>a-b); S.kits=o.kits||1;
+      renderSize(); renderFilter(); refresh(true); toast(`Параметри замовлення №${id} підставлено — оберіть ціну в таблиці.`); break; }
     case 'cancel': modal(`<h3>Скасувати замовлення №${id}?</h3><p class="muted">Замовлення ще не оплачене й не в друці, тому скасування безкоштовне.</p><button class="btn pri" data-act="docancel" data-id="${id}">Так, скасувати</button>`); break;
     case 'docancel': { const o=ordById(id); o.st='cancel'; addMsg({from:'Система',o:id,t:`Замовлення №${id} скасовано на ваш запит.`,read:true}); closeModal(); rr(); break; }
     case 'rework': modal(`<h3>Доопрацювання макета${id?' · №'+id:''}</h3><p class="muted" style="margin-top:0">Дизайнер виправить макет за вас. Вартість залежить від обсягу роботи — ми повідомимо її після перегляду, і вона додасться до замовлення.</p>
-       <div class="lbl">Що потрібно змінити (необов’язково)</div><textarea class="area" style="min-height:90px"></textarea><div style="margin-top:12px"><button class="btn pri" data-act="dorework" data-id="${id}">Замовити доопрацювання</button></div>`); break;
-    case 'dorework': { const o=ordById(id); o.reworkReq=true; o.st='check'; o.fix=null;
+       <div class="lbl">Що потрібно змінити (необов’язково)</div><textarea class="area" id="rwT" style="min-height:90px"></textarea><div style="margin-top:12px"><button class="btn pri" data-act="dorework" data-id="${id}">Замовити доопрацювання</button></div>`); break;
+    case 'dorework': { const o=ordById(id), rt=($('#rwT')||{}).value; if(rt&&rt.trim()) REPLIES.push({o:id,d:new Date(),t:'Доопрацювання: '+rt.trim()}); o.reworkReq=true; o.st='check'; o.fix=null;
       addMsg({from:'Система',o:id,read:true,t:`Запит на доопрацювання макета для №${id} надіслано. Дизайнер оцінить роботу й повідомить вартість.`});
       closeModal(); if(C.page==='order') rr(); else go('order/'+id); break; }
     case 'reply': { const tx=$('#replyTx').value.trim(); if(!tx) return; REPLIES.push({o:id,d:new Date(),t:tx}); rr(); break; }
@@ -991,7 +996,7 @@ document.addEventListener('click',e=>{
     case 'topup': case 'mkinv': modal(`<h3>${a.dataset.act==='topup'?'Поповнення балансу':'Рахунок на поповнення'}</h3><div class="lbl">Сума, грн</div><input class="inp" id="tuSum" type="number" min="1" value="1000" style="max-width:200px">
        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">${a.dataset.act==='topup'?`<button class="btn pri" data-act="dotopup" data-v="card">Оплатити карткою</button>`:''}<button class="btn ${a.dataset.act==='mkinv'?'pri':''}" data-act="dotopup" data-v="inv">Сформувати рахунок</button></div>`); break;
     case 'dotopup': { const s=+$('#tuSum').value; if(!(s>0)) return; const now=new Date();
-      if(v==='card'){ TX.push({d:now,t:'Поповнення балансу карткою',s}); closeModal(); }
+      if(v==='card'){ onlinePay('card',s,'Поповнення балансу',()=>{ TX.push({d:new Date(),t:'Поповнення балансу карткою',s}); push(); rr(); }); return; }
       else { const n=invNo(); INV.unshift({n,d:now,o:[],t:'Поповнення балансу',s,paid:false}); C.ftab='inv'; closeModal(); toast(`Рахунок ${n} на ${fmt(s)} грн сформовано.`); }
       rr(); break; }
     case 'mf': C.mf=v; C.msel.clear(); C.mopen=null; rr(); break;
@@ -1000,15 +1005,39 @@ document.addEventListener('click',e=>{
     case 'mbulk': msgDo([...C.msel],v); rr(); break;
     case 'mone': msgDo([id],v); rr(); break;
     case 'mopen': { if(e.target.closest('button,a,input')) return; const m=MSGS.find(x=>x.id===id); C.mopen=C.mopen===id?null:id; if(m) m.read=true; rr(); break; }
-    case 'mfwd': modal(`<h3>Переслати повідомлення</h3><div class="lbl">Email отримувача</div><input class="inp" type="email" placeholder="name@example.com"><div style="margin-top:12px"><button class="btn pri" data-toast="Тестова версія: повідомлення не надсилається">Переслати</button></div>`); break;
+    case 'mfwd': modal(`<h3>Переслати повідомлення</h3><div class="lbl">Email отримувача</div><input class="inp" type="email" placeholder="name@example.com"><div style="margin-top:12px"><button class="btn pri" data-act="mfwdGo" data-id="${id}">Переслати</button></div>`); break;
     case 'ptype': ME.type=v; rr(); break;
-    case 'psave': toast('Тестова версія: дані профілю не зберігаються'); break;
+    case 'psave': { const g=k=>{ const n=$('#'+k); return n?n.value.trim():null; }; const n=g('pfN'); if(!n){ $('#pfN').focus(); return; }
+      ME.name=n; ME.phone=g('pfP')||''; ME.email=g('pfE')||''; if(g('pfCo')!=null){ ME.company=g('pfCo'); ME.code=g('pfCode'); ME.iban=g('pfIban'); ME.addr=g('pfAddr'); }
+      push(); rr(); toast('Профіль збережено'); break; }
+    case 'pwSave': { const c=DB.clients.find(x=>x.id===CID), o=$('#pwOld').value, n=$('#pwNew').value, m=$('#pwMsg');
+      if(c.pass&&o!==c.pass){ m.style.color='var(--bad)'; m.textContent='Поточний пароль неправильний'; return; } if(n.length<6){ m.style.color='var(--bad)'; m.textContent='Новий пароль — від 6 символів'; return; }
+      c.pass=n; saveDB(DB,false); $('#pwOld').value=''; $('#pwNew').value=''; m.style.color='var(--ok)'; m.textContent='Пароль змінено'; break; }
+    case 'forgot': modal(`<h3>Відновлення пароля</h3><div class="lbl">Телефон або email</div><input class="inp" id="fgL" value="${esc(($('#lgLogin')||{}).value||'')}"><div id="fgErr" style="color:var(--bad);font-size:13px;min-height:18px;margin-top:6px"></div><button class="btn pri" data-act="fgSend">Надіслати код</button>`); break;
+    case 'fgSend': { const l=normLogin($('#fgL').value), c=DB.clients.find(x=>[x.em,x.ph].some(y=>y&&normLogin(y)===l)); if(!c){ $('#fgErr').textContent='Такого телефону або email не знайдено'; return; }
+      FG={id:c.id,code:String(1000+Math.floor(Math.random()*9000))};
+      modal(`<h3>Введіть код</h3><p class="muted" style="margin-top:0">Код надіслано на ${esc(c.em&&c.em.includes('@')?c.em:c.ph)}. У тестовій версії код: <b>${FG.code}</b></p><div class="fgrid"><div><div class="lbl">Код</div><input class="inp" id="fgC" inputmode="numeric"></div><div><div class="lbl">Новий пароль</div><input class="inp" id="fgP" type="password" autocomplete="new-password"></div></div><div id="fgErr" style="color:var(--bad);font-size:13px;min-height:18px;margin-top:6px"></div><button class="btn pri" data-act="fgSet">Зберегти пароль</button>`); break; }
+    case 'fgSet': { if(!FG) return; if($('#fgC').value.trim()!==FG.code){ $('#fgErr').textContent='Неправильний код'; return; } if($('#fgP').value.length<6){ $('#fgErr').textContent='Пароль — від 6 символів'; return; }
+      DB.clients.find(x=>x.id===FG.id).pass=$('#fgP').value; saveDB(DB,false); FG=null; closeModal(); toast('Пароль змінено. Увійдіть з новим паролем.'); break; }
+    case 'mfwdGo': { const m=MSGS.find(x=>x.id===id), em=($('#modalBox input[type=email]')||{}).value||''; if(!/@/.test(em)){ $('#modalBox input[type=email]').focus(); return; }
+      const l=document.createElement('a'); l.href=`mailto:${encodeURIComponent(em)}?subject=${encodeURIComponent('Повідомлення від друкарні'+(m&&m.o?' · замовлення №'+m.o:''))}&body=${encodeURIComponent(m?m.t:'')}`; l.click(); closeModal(); toast('Відкрито лист у поштовій програмі'); break; }
+    case 'cuSend': { const n=$('#cuN').value.trim(), ph=$('#cuP').value.trim(), t=$('#cuT').value.trim(); if(!n||!ph||!t){ $('#cuErr').textContent='Заповніть ім’я, телефон і опис завдання'; return; }
+      const f=$('#cuF').files[0], lead={id:Math.max(0,...DB.leads.map(x=>x.id))+1,d:new Date(),type:'custom',n,ph,t,c:CID||null,st:'new'};
+      const save=()=>{ DB.leads.unshift(lead); saveDB(DB,false); app.innerHTML=crumbs('Індивідуальне замовлення')+`<div class="card" style="text-align:center;padding:40px"><h2 style="margin:0 0 8px">Дякуємо! Заявку №${lead.id} прийнято</h2><p class="muted">Менеджер зателефонує на ${esc(ph)} і прорахує замовлення.</p><a class="btn" data-go="">До калькулятора</a></div>`; };
+      if(f) FSTORE.put(f).then(fid=>{ lead.file={n:f.name,size:f.size,fid}; save(); }); else save(); break; }
+    case 'fbSend': { const t=$('#fbT').value.trim(); if(!t){ $('#fbT').focus(); return; } DB.leads.unshift({id:Math.max(0,...DB.leads.map(x=>x.id))+1,d:new Date(),type:v,n:AUTH?ME.name:($('#fbN').value.trim()||'Без імені'),ph:AUTH?ME.phone:$('#fbN').value.trim(),t,c:CID||null,page:location.hash,st:'new'}); saveDB(DB,false); modal('<h3>Дякуємо!</h3><p class="muted">Повідомлення надіслано команді.</p>'); break; }
+    case 'invDocC': { const v2=INV.find(x=>x.n===v); if(!v2) break; const lines=[]; for(const oid of v2.o){ const o=ordById(oid), r=DB.orders.find(x=>x.id===oid); if(o) lines.push(...orderLines({...r,...o,kits:o.kits},`${CATS[o.cat]?CATS[o.cat].n:''}: ${o.name}, ${o.size}, ${o.q} (замовлення №${o.id})`)); }
+      if(!lines.length) lines.push([v2.t||'Поповнення балансу',1,'посл.',v2.s]); openDoc('Рахунок '+v2.n,docHtml({kind:'inv',n:v2.n,d:v2.d,buyer:{n:ME.company||ME.name,ph:ME.phone,em:ME.email,id:ME.id},lines,total:v2.s,paid:v2.paid,signer:'Бухгалтерія'})); break; }
+    case 'actDocC': { const [y,m]=v.split('-').map(Number), a2=ACTS.find(x=>x.y===y&&x.m===m), done=ORDERS.filter(o=>['done','sent','ready'].includes(o.st)&&o.d.getFullYear()===y&&o.d.getMonth()===m);
+      const lines=done.length?done.map(o=>[`${CATS[o.cat]?CATS[o.cat].n:''}: ${o.name}, ${o.size} (№${o.id})`,o.tir*(o.kits||1),'шт',o.sum+(o.rework||0)+(o.dlv||0)]):[['Послуги широкоформатного друку',1,'посл.',a2?a2.s:0]];
+      openDoc('Акт',docHtml({kind:'act',n:`А-${y}${String(m+1).padStart(2,'0')}-${ME.id}`,d:new Date(y,m+1,0),period:`${MONTHS[m]} ${y}`,buyer:{n:ME.company||ME.name,ph:ME.phone,em:ME.email,id:ME.id},lines,total:lines.reduce((s2,l)=>s2+l[3],0),signer:'Менеджер'})); break; }
     case 'radd': modal(`<h3>Новий отримувач</h3><div class="fgrid"><div><div class="lbl">ПІБ</div><input class="inp" id="rN"></div><div><div class="lbl">Телефон</div><input class="inp" id="rP" type="tel"></div>
        <div><div class="lbl">Місто</div><input class="inp" id="rC"></div><div><div class="lbl">Відділення або поштомат</div><input class="inp" id="rW"></div></div><div style="margin-top:12px"><button class="btn pri" data-act="dorAdd">Додати</button></div>`); break;
     case 'dorAdd': { const n=$('#rN').value.trim(); if(!n) return; ME.recips.push({n,ph:$('#rP').value.trim(),city:$('#rC').value.trim(),wh:$('#rW').value.trim()}); closeModal(); rr(); break; }
     case 'rdel': ME.recips.splice(id,1); rr(); break;
     case 'tksend': { const tx=$('#tkText').value.trim(); if(!tx) return; const o=$('#tkOrd').value;
-      TICKETS.unshift({id:Math.max(...TICKETS.map(t=>t.id))+1,d:new Date(),subj:$('#tkSubj').value,o:o?+o:null,st:'Нове'});
+      const tf=$('#tkFile').files[0], tk={id:Math.max(300,...Object.values(DB.tickets).flat().map(t=>t.id))+1,d:new Date(),subj:$('#tkSubj').value,o:o?+o:null,st:'Нове',t:tx}; TICKETS.unshift(tk);
+      if(tf) FSTORE.put(tf).then(fid=>{ tk.file={n:tf.name,size:tf.size,fid}; push(); });
       addMsg({from:'Підтримка',o:o?+o:null,t:'Звернення отримано. Менеджер відповість тут, у «Листуванні», найближчим часом.'}); rr(); break; }
     case 'atab': C.atab=v; rr(); break;
     case 'rtype': C.rtype=v; rr(); break;
@@ -1043,6 +1072,8 @@ document.addEventListener('change',e=>{
     addMsg({from:'Система',o:o.id,t:`Макет ${t.files[0].name} отримано й передано на перевірку.`}); rr(); }
   if(t.id==='ckBon'){ C.ck.bon=t.checked; rr(); }
   if(t.id==='tkFile'&&t.files[0]) $('#tkFn').textContent=t.files[0].name;
+  if(t.id==='cuF'&&t.files[0]) $('#cuFn').textContent=t.files[0].name+' · '+fsize(t.files[0].size);
+  if(t.dataset.nf){ ME.notify[t.dataset.nf]=t.checked; push(); }
 });
 document.addEventListener('input',e=>{
   const t=e.target;
@@ -1054,7 +1085,7 @@ document.addEventListener('input',e=>{
 // зберігаємо після кожної дії; зміни з адмінки (інша вкладка) підхоплюємо одразу
 for(const ev of ['click','change','input']) document.addEventListener(ev,()=>setTimeout(push,0));
 window.addEventListener('storage',e=>{ if(e.key===DB_KEY){ pull(); if(C.page&&PAGES[C.page]) rr(); else if(S.cat&&curCat().kind!=='form'){ renderFilter(); renderPrice(); } } });
-let BY=null;
+let BY=null, FG=null;
 // оформлення від імені клієнта: менеджер відкриває сайт з картки клієнта в CRM (?as=№клієнта&by=№співробітника).
 // У тестовій версії перевірка в браузері; у робочій — сесія співробітника на сервері.
 (()=>{ const q=new URLSearchParams(location.search), as=+q.get('as'), by=+q.get('by');
@@ -1069,7 +1100,7 @@ function renderBehalf(){
   const st=DB.staff.find(x=>x.id===BY), debt=DB.orders.filter(o=>o.c===CID&&o.st!=='cancel'&&o.credit&&(o.sum+(o.rework||0)+(o.dlv||0)-o.paid)>0.005);
   bar.innerHTML=`<div class="wrap"><span>Оформлення від імені клієнта <b>${esc(ME.name)}</b> · №${ME.id} · ціни категорії «${esc((CFG.ccats.find(x=>x.id===CFG.ccat)||{n:''}).n)}»${debt.length?` · <b class="debt">борг ${fmt(debt.reduce((a,o)=>a+o.sum+(o.rework||0)+(o.dlv||0)-o.paid,0))} грн</b>`:''}</span><span>Менеджер: ${esc(st?st.n:'—')} <button class="btn sm" data-act="endBehalf">Завершити</button></span></div>`;
 }
-pull(); route();
+pull(); applyBrand(); route();
 </script>
 </body>
 </html>

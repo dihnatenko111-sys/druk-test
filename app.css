@@ -499,3 +499,5 @@ footer .tel{font-size:22px;color:#fff;font-weight:700}
 .pay-blk:hover{background:#000}
 .payw.ok{text-align:center;padding:20px 0}
 .payw-ok{width:56px;height:56px;border-radius:50%;background:var(--green-bg);color:var(--green-fg);display:grid;place-items:center;font-size:28px;margin:0 auto 10px}
+.logo i.img{background-color:transparent!important;background-size:contain;background-repeat:no-repeat;background-position:center;box-shadow:none}
+.logo i.img::before,.logo i.img::after{display:none}
