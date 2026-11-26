@@ -6,7 +6,7 @@
 <title>Широкоформатний друк</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=15">
+<link rel="stylesheet" href="app.css?v=16">
 </head>
 <body>
 
@@ -32,10 +32,11 @@
 
 <script>
 // нова версія сайту: браузер міг узяти сторінку з кешу — перевіряємо номер збірки й перезавантажуємо
-(function(){ var B='15'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
+(function(){ var B='16'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
   if(v&&v!==B&&u.searchParams.get('b')!==v){ u.searchParams.set('b',v); location.replace(u.toString()); } }).catch(function(){}); })();
 </script>
-<script src="shared.js?v=15"></script>
+<script src="shared.js?v=16"></script>
+<script src="viewer.js?v=16"></script>
 <script>
 /* =====================================================================
    РЕНДЕР
@@ -290,7 +291,7 @@ function renderPrice(){
 }
 
 /* ---------- модалки ---------- */
-function modal(html){ $('#modalBox').innerHTML=html+`<div style="text-align:right;margin-top:18px"><button class="btn" data-close>Закрити</button></div>`; $('#modal').classList.add('on'); }
+function modal(html){ $('#modalBox').classList.remove('wide'); $('#modalBox').innerHTML=html+`<div style="text-align:right;margin-top:18px"><button class="btn" data-close>Закрити</button></div>`; $('#modal').classList.add('on'); }
 const closeModal=()=>$('#modal').classList.remove('on');
 const toast=t=>modal(`<h3>${t}</h3>`);
 
@@ -958,7 +959,7 @@ document.addEventListener('click',e=>{
       addMsg({from:'Підтримка',o:o?+o:null,t:'Звернення отримано. Менеджер відповість тут, у «Листуванні», найближчим часом.'}); rr(); break; }
     case 'atab': C.atab=v; rr(); break;
     case 'rtype': C.rtype=v; rr(); break;
-    case 'myFile': { const o=ordById(id), f=o&&o.files[+v]; if(f) fileOpen(o,f); break; }
+    case 'myFile': { const o=ordById(id), f=o&&o.files[+v], r=DB.orders.find(x=>x.id===id)||{}; if(f) openViewer({id,w:r.w,h:r.h,qk:r.qk,opts:r.opts||o.opts},f,f.n); break; }
     case 'endBehalf': try{ sessionStorage.removeItem('behalf_by'); }catch(e){} push(); BY=null; setAuth(null); location.href='admin.html#clients'; break;
     case 'login': { const l=normLogin($('#lgLogin').value), p=$('#lgPass').value;
       const c=DB.clients.find(x=>x.pass&&x.pass===p&&[x.em,x.ph].some(y=>y&&normLogin(y)===l));

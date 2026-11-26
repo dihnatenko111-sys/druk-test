@@ -6,7 +6,7 @@
 <title>Адмінка друку</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=15">
+<link rel="stylesheet" href="app.css?v=16">
 <style>
 /* ---------- адмінка ---------- */
 .atop{display:flex;align-items:center;gap:16px;padding:12px 24px;flex-wrap:wrap}
@@ -111,10 +111,11 @@ select.ed{padding-right:24px;background-position:right 8px center}
 
 <script>
 // нова версія сайту: браузер міг узяти сторінку з кешу — перевіряємо номер збірки й перезавантажуємо
-(function(){ var B='15'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
+(function(){ var B='16'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
   if(v&&v!==B&&u.searchParams.get('b')!==v){ u.searchParams.set('b',v); location.replace(u.toString()); } }).catch(function(){}); })();
 </script>
-<script src="shared.js?v=15"></script>
+<script src="shared.js?v=16"></script>
+<script src="viewer.js?v=16"></script>
 <script>
 /* =====================================================================
    АДМІНКА + CRM. Тестові дані, в пам'яті сторінки.
@@ -618,6 +619,10 @@ function invDoc(inv){
   w.document.close();
 }
 // документ «Замовлення на друк» (формат уточнюється за фото-референсом замовника)
+function badModal(o,id,v,pre=''){ modal(`<h3>Повернути макет на виправлення</h3><p class="muted" style="margin-top:0">${esc(o.files[+v].n)} · №${id}</p>
+       <div class="lbl">Причина (клієнт побачить цей текст)</div><textarea class="area" id="badWhy" style="min-height:90px" placeholder="Напр.: шрифти не переведені в криві"></textarea>
+       <label class="check" style="margin-top:10px;font-size:13px"><input type="checkbox" id="badRw" checked>Додати в повідомлення посилання «Замовити доопрацювання»</label>
+       <div style="margin-top:12px"><button class="btn pri" data-act="doBad" data-id="${id}" data-v="${v}">Повернути клієнту</button></div>`); if(pre) $('#badWhy').value=pre; }
 function fsModal(open,path){ modal(`<h3>${open?'Відкрити файл':'Показати в папці'}</h3><p class="muted" style="margin-top:0">${open?'Агент друку відкриє файл у програмі, призначеній для нього в Windows (RIP, Photoshop, Acrobat…).':'Агент друку відкриє Провідник Windows і виділить файл.'}</p>
         <code class="pathbox">${esc(path)}</code><div class="btns" style="margin-top:12px"><button class="btn" data-act="fsCopy" data-v="${esc(path)}">Копіювати шлях</button></div>
         <p class="muted" style="font-size:12.5px;margin:10px 0 0">У тестовій версії агент не встановлено, тому файл не відкривається. Після встановлення кнопка спрацює одразу, без цього вікна.</p>`); }
@@ -1038,7 +1043,7 @@ function render(){ renderWho(); if(ME()&&!seesOrders()&&['dash','orders'].includ
 function rr(){ const y=window.scrollY; render(); window.scrollTo(0,y); }
 window.addEventListener('popstate',()=>route());
 
-function modal(html){ $('#modalBox').innerHTML=html+`<div style="text-align:right;margin-top:18px"><button class="btn" data-close>Закрити</button></div>`; $('#modal').classList.add('on'); }
+function modal(html){ $('#modalBox').classList.remove('wide'); $('#modalBox').innerHTML=html+`<div style="text-align:right;margin-top:18px"><button class="btn" data-close>Закрити</button></div>`; $('#modal').classList.add('on'); }
 function closeModal(){ $('#modal').classList.remove('on'); }
 const toast=t=>modal(`<h3>${t}</h3>`);
 
@@ -1082,13 +1087,10 @@ document.addEventListener('click',e=>{
     case 'st': if(v==='cancel'){ modal(`<h3>Скасувати №${id}?</h3><p class="muted">Клієнт отримає повідомлення.${o.paid?` Оплачені ${fmt(o.paid)} грн повернуться на баланс клієнта.`:''}</p><button class="btn pri" data-act="doCancel" data-id="${id}">Так, скасувати</button>`); break; }
       setStatus(o,v); rr(); break;
     case 'doCancel': if(o.paid){ LEDGER.push({c:o.c,d:new Date(),t:`Повернення за скасоване №${o.id}`,s:o.paid}); o.paid=0; } setStatus(o,'cancel'); closeModal(); rr(); break;
-    case 'fOk': { const f=o.files[+v]; f.st='ok'; if(!o.des&&ME().role==='designer') o.des=meId; logO(o,`макет ${f.n} перевірено`);
+    case 'fOk': { closeModal(); const f=o.files[+v]; f.st='ok'; if(!o.des&&ME().role==='designer') o.des=meId; logO(o,`макет ${f.n} перевірено`);
       if(layoutsOk(o)){ if(o.st==='fix') o.st='check'; sendClient(o,'Препрес',`Макет для №${o.id} перевірено.`+(isPaid(o)?' Замовлення йде в друк.':' Замовлення піде в друк після оплати.')); o.rv='ok'; if((isPaid(o)||o.credit)&&o.st==='check') setStatus(o,'paid'); }
       rr(); break; }
-    case 'fBad': modal(`<h3>Повернути макет на виправлення</h3><p class="muted" style="margin-top:0">${esc(o.files[+v].n)} · №${id}</p>
-       <div class="lbl">Причина (клієнт побачить цей текст)</div><textarea class="area" id="badWhy" style="min-height:90px" placeholder="Напр.: шрифти не переведені в криві"></textarea>
-       <label class="check" style="margin-top:10px;font-size:13px"><input type="checkbox" id="badRw" checked>Додати в повідомлення посилання «Замовити доопрацювання»</label>
-       <div style="margin-top:12px"><button class="btn pri" data-act="doBad" data-id="${id}" data-v="${v}">Повернути клієнту</button></div>`); break;
+    case 'fBad': badModal(o,id,v); break;
     case 'doBad': { const why=$('#badWhy').value.trim(); if(!why){ $('#badWhy').focus(); return; } const f=o.files[+v]; f.st='bad'; f.reason=why; o.fixReason=why; o.rv='bad';
       if(o.st==='check') o.st='fix'; logO(o,`макет ${f.n} повернено: ${why}`);
       sendClient(o,'Препрес',`Макет ${f.n} повернено на виправлення. ${why}`,{fix:$('#badRw').checked});
@@ -1127,13 +1129,15 @@ document.addEventListener('click',e=>{
     case 'combo': U.combo=!U.combo; rr(); break;
     case 'nmTgl': U.nm=a.checked; rr(); break;
     case 'printDoc': printDoc(o); break;
-    case 'fView': { const f=o.files[+v]; if(f) fileOpen(o,f,diskName(o,f,+v)); break; }
+    case 'fView': { const f=o.files[+v]; if(!f) break; const i=+v, chk=can('prepress')&&f.st==='wait'&&['new','check','fix'].includes(o.st);
+      openViewer(o,f,diskName(o,f,i),chk?`<button class="btn ok" data-act="fOk" data-id="${o.id}" data-v="${i}">Перевірено</button><button class="btn bad" data-act="vwBad" data-id="${o.id}" data-v="${i}">Повернути з зауваженнями</button>`:''); break; }
+    case 'vwBad': badModal(o,id,v,((VW&&VW.chk.warn)||[]).join('. ')); break;
     case 'fDl': { const f=o.files[+v]; if(f) fileSave(o,f); break; }
     case 'fDlDisk': { const f=o.files[+v]; if(f) fileSave(o,f,diskName(o,f,+v)); break; }
     // відкриття файлу / папки робить агент друку через своє посилання drukagent:// (браузер сам не має доступу до диска)
     case 'fsOpen': case 'fsReveal': fsModal(a.dataset.act==='fsOpen',v); break;
     case 'fsOpenO': { const fs=o.files.map((f,i)=>({f,i})).filter(x=>x.f.st==='ok'), dir=diskDir(o,PRINT_ROOT), path=x=>dir+'\\'+diskName(o,x.f,x.i);
-      if(fs.length===1){ fileOpen(o,fs[0].f,diskName(o,fs[0].f,fs[0].i)); break; }
+      if(fs.length===1){ openViewer(o,fs[0].f,diskName(o,fs[0].f,fs[0].i)); break; }
       modal(`<h3>Файли замовлення №${o.id}</h3><div style="display:grid;gap:8px">${fs.map(x=>`<div class="disk-f"><span>${esc(diskName(o,x.f,x.i))}</span><span class="disk-a"><button class="btn sm pri" data-act="fView" data-id="${o.id}" data-v="${x.i}">Відкрити</button><button class="btn sm" data-act="fsReveal" data-v="${esc(path(x))}">Показати в папці</button></span></div>`).join('')}</div>`); break; }
     case 'fsCopy': { const path=v; const ok=()=>{ a.textContent='Скопійовано ✓'; setTimeout(()=>{ a.textContent='Копіювати шлях'; },1500); };
       try{ navigator.clipboard.writeText(path).then(ok,()=>toast(esc(path))); }catch(e){ toast(esc(path)); } return; }
