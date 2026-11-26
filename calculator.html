@@ -6,7 +6,7 @@
 <title>Широкоформатний друк</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=16">
+<link rel="stylesheet" href="app.css?v=17">
 </head>
 <body>
 
@@ -32,11 +32,11 @@
 
 <script>
 // нова версія сайту: браузер міг узяти сторінку з кешу — перевіряємо номер збірки й перезавантажуємо
-(function(){ var B='16'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
+(function(){ var B='17'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
   if(v&&v!==B&&u.searchParams.get('b')!==v){ u.searchParams.set('b',v); location.replace(u.toString()); } }).catch(function(){}); })();
 </script>
-<script src="shared.js?v=16"></script>
-<script src="viewer.js?v=16"></script>
+<script src="shared.js?v=17"></script>
+<script src="viewer.js?v=17"></script>
 <script>
 /* =====================================================================
    РЕНДЕР
@@ -480,7 +480,51 @@ const STATUS={
 const FILE_ST={ok:['Перевірено','green'],wait:['На перевірці','amber'],bad:['Повернено','red'],old:['Замінено','gray']};
 const DELIV={self:{n:'Самовивіз зі складу',s:'Безкоштовно'},np:{n:'Нова Пошта — відділення',s:'За тарифами перевізника'},
   npl:{n:'Нова Пошта — поштомат',s:'Вироби до 30 кг, до 40×60 см'},npa:{n:'Нова Пошта — адресна',s:'Кур’єр до дверей'}};
-const PAY={bal:{n:'З балансу',s:''},card:{n:'Карткою онлайн',s:'Visa, Mastercard, Apple Pay, Google Pay'},inv:{n:'Рахунок',s:'Безготівково, для ФОП і юросіб'},later:{n:'Оплачу пізніше',s:'У друк — після оплати'}};
+// способи оплати; online — через платіжний сервіс (у тестовій версії — тестове вікно оплати)
+const PAY={
+  card:{g:'Онлайн',n:'Карткою Visa / Mastercard',s:'Оплата зараховується одразу',online:1},
+  wallet:{g:'Онлайн',n:'Apple Pay / Google Pay',s:'В один дотик з телефону',online:1},
+  parts:{g:'Онлайн',n:'Оплата частинами',s:'2–6 платежів без переплати',online:1},
+  inv:{g:'Безготівково',n:'Рахунок для ФОП / ТОВ',s:'Рахунок PDF — у «Фінансах»'},
+  iban:{g:'Безготівково',n:'Переказ на IBAN',s:'З будь-якого банку за реквізитами'},
+  bal:{g:'Інше',n:'З балансу',s:''},
+  cod:{g:'Інше',n:'Накладений платіж',s:'При отриманні в Новій Пошті',need:'np'},
+  cash:{g:'Інше',n:'При отриманні на складі',s:'Готівкою або карткою',need:'self'},
+  later:{g:'Інше',n:'Оплачу пізніше',s:'У друк — після оплати'},
+};
+const PAY_TX={card:'Оплата карткою',wallet:'Оплата Apple Pay / Google Pay',parts:'Оплата частинами'};
+const codFee=s=>Math.round((20+s*0.02)*100)/100;
+const IBAN_DEMO={to:'Назва друкарні (тестові реквізити)',iban:'UA00 0000 0000 0000 0000 0000 000',code:'00000000'};
+// список способів оплати з групами; ctx: 'ck' — оформлення, 'pay' — оплата вже створеного замовлення
+function payCards(sel,amount,deliv,ctx){
+  const bal=balance(), groups={};
+  for(const [id,x] of Object.entries(PAY)){ if(ctx==='pay'&&['cod','cash','later'].includes(id)) continue; (groups[x.g]=groups[x.g]||[]).push([id,x]); }
+  return Object.entries(groups).map(([g,list])=>`<div class="pay-g">${g}</div><div class="rcards">${list.map(([id,x])=>{
+    const why=id==='bal'&&bal<amount?`Доступно ${fmt(bal)} грн — недостатньо`:x.need==='np'&&deliv==='self'?'Тільки з доставкою Новою Поштою':x.need==='self'&&deliv!=='self'?'Тільки для самовивозу':'';
+    const sub=id==='bal'?`Доступно ${fmt(bal)} грн`:id==='cod'?`${x.s}, комісія ${fmt(codFee(amount))} грн`:x.s;
+    return `<a class="rcard ${sel===id?'on':''} ${why?'dis':''}" data-act="${why?'':ctx==='ck'?'ckp':'payPick'}" data-v="${id}"><b>${x.n}</b><span>${why||sub}</span></a>`; }).join('')}</div>`).join('');
+}
+// деталі під вибраним способом
+function payDetails(id,amount,ctx){
+  const k=C.ck;
+  if(id==='parts'){ const n=k.parts||3; return `<div class="pay-d"><div class="lbl">Кількість платежів</div><div class="chips">${[2,3,4,6].map(x=>`<div class="chip ${x===n?'on':''}" data-act="payParts" data-v="${x}">${x} × ${fmt(amount/x)} грн</div>`).join('')}</div><p class="muted">Перший платіж — зараз, наступні — щомісяця. Банк оплачує замовлення повністю, тож воно одразу йде в роботу.</p></div>`; }
+  if(id==='inv') return `<div class="pay-d"><div class="fgrid"><div><div class="lbl">Платник (ФОП / ТОВ)</div><input class="inp" id="payCo" value="${esc(ME.company||'')}" placeholder="ТОВ «Назва»"></div><div><div class="lbl">ЄДРПОУ / ІПН</div><input class="inp" id="payCode" value="${esc(ME.code||'')}" inputmode="numeric"></div></div><p class="muted">Рахунок з’явиться в «Фінанси → Рахунки» і прийде на email. Друк — після надходження оплати.</p></div>`;
+  if(id==='iban') return `<div class="pay-d"><dl class="kv2" style="grid-template-columns:130px minmax(0,1fr);font-size:13.5px"><dt>Отримувач</dt><dd>${IBAN_DEMO.to}</dd><dt>IBAN</dt><dd><code>${IBAN_DEMO.iban}</code></dd><dt>ЄДРПОУ</dt><dd>${IBAN_DEMO.code}</dd><dt>Призначення</dt><dd>Оплата замовлення № (з’явиться після оформлення)</dd><dt>Сума</dt><dd><b>${fmt(amount)} грн</b></dd></dl><p class="muted">Реквізити також будуть у картці замовлення. Оплата зараховується за 1 банківський день.</p></div>`;
+  if(id==='cod') return `<div class="pay-d"><p class="muted" style="margin:0">Сплачуєте у відділенні при отриманні: ${fmt(amount)} грн + комісія Нової Пошти ≈ ${fmt(codFee(amount))} грн. Друк починається після підтвердження менеджером.</p></div>`;
+  if(id==='cash') return `<div class="pay-d"><p class="muted" style="margin:0">Оплата на складі при видачі: ${WAREHOUSE}. Друк починається після підтвердження менеджером.</p></div>`;
+  if(id==='later') return `<div class="pay-d"><p class="muted" style="margin:0">Замовлення збережеться, оплатити можна в «Замовлення» або «Фінанси». У друк — після оплати.</p></div>`;
+  return '';
+}
+// тестове вікно платіжного сервісу
+let PAYCB=null;
+function onlinePay(how,amount,label,cb){
+  PAYCB=cb; const parts=C.ck.parts||3;
+  const body=how==='card'?`<div class="fgrid"><div class="full"><div class="lbl">Номер картки</div><input class="inp" id="pcN" value="4242 4242 4242 4242" inputmode="numeric" autocomplete="off"></div><div><div class="lbl">Термін дії</div><input class="inp" id="pcE" value="12/29" autocomplete="off"></div><div><div class="lbl">CVV</div><input class="inp" id="pcC" value="123" autocomplete="off"></div></div><p class="muted">Тестова картка підставлена автоматично — гроші не списуються.</p>`
+    :how==='wallet'?`<div class="pay-wbtns"><button class="btn pay-blk" data-act="payGo">Оплатити через Apple Pay</button><button class="btn pay-blk" data-act="payGo">Оплатити через Google Pay</button></div><p class="muted">У робочій версії відкриється гаманець на телефоні або в браузері.</p>`
+    :`<dl class="kv2" style="grid-template-columns:150px minmax(0,1fr);font-size:13.5px"><dt>Платежів</dt><dd>${parts}</dd><dt>Щомісяця</dt><dd><b>${fmt(amount/parts)} грн</b></dd><dt>Банк</dt><dd><select class="sel" id="pcB"><option>Монобанк — «Покупка частинами»</option><option>ПриватБанк — «Оплата частинами»</option></select></dd></dl><p class="muted">Банк підтвердить заявку в застосунку на телефоні.</p>`;
+  modal(`<div class="payw"><div class="payw-top">🔒 Захищена оплата · тестовий режим</div><div class="payw-sum">${fmt(amount)} грн</div><div class="muted" style="margin-bottom:14px">${esc(label)}</div>${body}
+    ${how==='wallet'?'':`<button class="btn pri" style="width:100%;height:46px;margin-top:6px" data-act="payGo">${how==='parts'?'Підтвердити оплату частинами':'Оплатити '+fmt(amount)+' грн'}</button>`}</div>`);
+}
 const WAREHOUSE='м. Київ, вул. Складська, 10 (вхід з двору)';
 const SENDERS={'Препрес':'amber','Менеджер':'indigo','Бухгалтерія':'blue','Склад':'green','Доставка':'cyan','Система':'gray','Підтримка':'indigo'};
 
@@ -513,7 +557,7 @@ function pull(){
   CFG.level=CFG.levels.some(l=>l.id===c.level)?c.level:CFG.levels[0].id; CFG.ccat=CFG.ccats.some(x=>x.id===c.cat)?c.cat:'retail'; LCACHE.clear();
   const mine=DB.orders.filter(o=>o.c===CID).sort((a,b)=>b.d-a.d);
   ORDERS=mine.map(o=>({id:o.id,d:o.d,cat:o.cat,name:o.name,q:Q[o.qk]?plain(Q[o.qk].n):(o.qTxt||''),size:o.sizeTxt||`${o.w} × ${o.h} мм`,tir:o.tir,kits:o.kits||1,opts:o.opts||[],term:o.term,ready:o.ready,
-    sum:o.sum,dlv:o.dlv||0,credit:o.credit||null,paid:o.paid,st:o.st,deliv:{t:o.deliv==='self'?'self':'np',r:o.delivR||0,ttn:o.ttn||''},files:o.files||[],fix:o.fixReason||'',rework:o.rework||0,reworkReq:!!o.reworkReq,title:o.title||'',comment:o.comment||''}));
+    sum:o.sum,dlv:o.dlv||0,credit:o.credit||null,pm:o.pm||'',paid:o.paid,st:o.st,deliv:{t:o.deliv==='self'?'self':'np',r:o.delivR||0,ttn:o.ttn||''},files:o.files||[],fix:o.fixReason||'',rework:o.rework||0,reworkReq:!!o.reworkReq,title:o.title||'',comment:o.comment||''}));
   const all=[]; for(const o of mine) for(const m of o.thread||[]) all.push([o.id,m]); for(const m of DB.gen[CID]||[]) all.push([null,m]);
   let mid=0; for(const [,m] of all) if(m.id>mid) mid=m.id;
   for(const [oid,m] of all){ if(m.from==='Клієнт') REPLIES.push({o:oid,d:m.d,t:m.t});
@@ -532,7 +576,7 @@ function push(){
         who:BY||null,name:o.name,opts:o.opts,ttn:'',des:null,rv:'none',dlv:0,credit:null,mach:null,
         log:[{d:o.d,t:BY?`Замовлення оформив ${(DB.staff.find(x=>x.id===BY)||{n:'менеджер'}).n} від імені клієнта`:'Замовлення створено клієнтом на сайті'}],thread:[]}; DB.orders.unshift(r); }
     const was=r.st;
-    Object.assign(r,{st:o.st,sum:o.sum,paid:o.paid,files:o.files,fixReason:o.fix||'',rework:o.rework||0,reworkReq:!!o.reworkReq,title:o.title||'',comment:o.comment||'',deliv:o.deliv.t,delivR:o.deliv.r||0});
+    Object.assign(r,{st:o.st,sum:o.sum,paid:o.paid,pm:o.pm||r.pm||'',files:o.files,fixReason:o.fix||'',rework:o.rework||0,reworkReq:!!o.reworkReq,title:o.title||'',comment:o.comment||'',deliv:o.deliv.t,delivR:o.deliv.r||0});
     if(was&&was!==o.st) r.log.push({d:new Date(),t:`Клієнт: статус «${STATUS[was].n}» → «${STATUS[o.st].n}»`});
     r.thread=[...MSGS.filter(m=>m.o===o.id).map(m=>({id:m.id,d:m.d,from:m.from,t:m.t,read:m.read,arch:m.arch,fix:m.fix,del:m.del})),...REPLIES.filter(x=>x.o===o.id).map(x=>({d:x.d,from:'Клієнт',t:x.t}))].sort((a,b)=>a.d-b.d);
   }
@@ -658,7 +702,7 @@ function pCheckout(){
   const d=C.draft, k=C.ck;
   if(!d){ app.innerHTML=pageH('Оформлення замовлення')+`<div class="card">Спочатку оберіть продукт і ціну в калькуляторі. <a data-go="">Перейти до калькулятора →</a></div>`; return; }
   const bal=balance(), bonMax=Math.round(Math.min(bonus(),d.sum*BONUS_RULES.maxPart/100)*100)/100, bonUse=k.bon?bonMax:0, total=d.sum-bonUse;
-  if(k.pay==='bal'&&bal<total) k.pay='card';
+  if((k.pay==='bal'&&bal<total)||(PAY[k.pay].need==='np'&&k.deliv==='self')||(PAY[k.pay].need==='self'&&k.deliv!=='self')) k.pay='card';
   const kits=Array.from({length:d.kits},(_,i)=>i);
   app.innerHTML=`<div class="crumbs"><a data-go="">Оформлення нового замовлення</a><span>/</span><a data-go="${d.catId}">${CATS[d.catId].n}</a><span>/</span>Оформлення</div>`+
   pageH('Оформлення замовлення')+
@@ -675,16 +719,16 @@ function pCheckout(){
       :`<div class="sec-t">Отримувач</div><div class="rcards">${ME.recips.map((r,i)=>`<a class="rcard ${k.r===i?'on':''}" data-act="ckr" data-v="${i}"><b>${r.n}</b><span>${r.ph}<br>${r.city}, ${k.deliv==='npa'?'адреса з профілю':r.wh}</span></a>`).join('')}
         <a class="rcard" data-go="profile"><b>+ Новий отримувач</b><span>Додається в профілі</span></a></div>`}</div>
     <div class="card"><div class="card-h"><h2>3. Оплата</h2></div>
-     <div class="rcards">${Object.entries(PAY).map(([id,x])=>{ const dis=id==='bal'&&bal<total;
-       return `<a class="rcard ${k.pay===id?'on':''} ${dis?'dis':''}" data-act="${dis?'':'ckp'}" data-v="${id}"><b>${x.n}</b><span>${id==='bal'?`Доступно ${fmt(bal)} грн${dis?' — недостатньо':''}`:id==='inv'?ME.company:x.s}</span></a>`; }).join('')}</div>
+     ${payCards(k.pay,total,k.deliv,'ck')}${payDetails(k.pay,total,'ck')}
      ${bonMax>0?`<label class="check" style="margin-top:14px"><input type="checkbox" id="ckBon" ${k.bon?'checked':''}>Списати бонуси: ${fmt(bonMax)} грн <span class="muted">(до ${BONUS_RULES.maxPart}% вартості)</span></label>`:''}</div>
   </div><div class="sticky"><div class="card"><div class="card-h"><h2>Ваше замовлення</h2></div>
     <dl class="kv2" style="grid-template-columns:96px minmax(0,1fr);font-size:13.5px"><dt>Продукт</dt><dd>${d.cat}</dd><dt>Матеріал</dt><dd>${d.name}</dd><dt>Друк</dt><dd>${d.q}</dd>
      <dt>Розмір</dt><dd>${d.size}</dd><dt>Тираж</dt><dd>${d.tir} шт${d.kits>1?' × '+d.kits+' компл.':''}</dd>${d.opts.length?`<dt>Опції</dt><dd>${d.opts.join('<br>')}</dd>`:''}
      <dt>Готовність</dt><dd>${d.term}<br><b>${d.readyTxt.replace('на ','')}</b></dd></dl>
     <table class="sum" style="margin-top:14px"><tr><td>Друк і опції</td><td>${fmt(d.sum)}</td></tr>${bonUse?`<tr><td>Бонуси</td><td>−${fmt(bonUse)}</td></tr>`:''}
-     <tr><td>Доставка</td><td class="muted">${k.deliv==='self'?'безкоштовно':'за тарифами НП'}</td></tr><tr class="tot"><td>До сплати</td><td>${fmt(total)} грн</td></tr></table>
-    <button class="btn pri" style="width:100%;margin-top:16px;height:46px" data-act="place">${k.pay==='later'||k.pay==='inv'?'Оформити замовлення':'Оформити й оплатити'}</button>
+     <tr><td>Доставка</td><td class="muted">${k.deliv==='self'?'безкоштовно':'за тарифами НП'}</td></tr>${k.pay==='cod'?`<tr><td>Комісія НП (≈)</td><td class="muted">${fmt(codFee(total))}</td></tr>`:''}<tr class="tot"><td>До сплати</td><td>${fmt(total)} грн</td></tr>
+     <tr><td>Оплата</td><td style="font-weight:600">${PAY[k.pay].n}${k.pay==='parts'?` · ${k.parts||3} × ${fmt(total/(k.parts||3))}`:''}</td></tr></table>
+    <button class="btn pri" style="width:100%;margin-top:16px;height:46px" data-act="place">${PAY[k.pay].online?'Оформити й оплатити '+fmt(total)+' грн':k.pay==='bal'?'Оформити й списати з балансу':k.pay==='inv'?'Оформити й отримати рахунок':'Оформити замовлення'}</button>
     <p class="muted" style="font-size:12px;margin:10px 0 0;text-align:center">Оформлюючи замовлення, ви погоджуєтесь з <a data-go="page/offer">публічною офертою</a></p>
   </div></div></div>`;
 }
@@ -697,14 +741,15 @@ function placeOrder(){
     sum:d.sum,paid:0,st:files.length?'check':'new',deliv:{t:k.deliv==='self'?'self':'np',r:k.r},files,comment:(k.comment||'').trim()};
   o._x=d.x; ORDERS.unshift(o);
   if(bonUse){ BON.push({d:now,t:'Списано при оплаті',o:id,s:-bonUse}); o.paid+=bonUse; }
-  if(k.pay==='bal'||k.pay==='card'){
-    const s=d.sum-bonUse;
-    if(k.pay==='card') TX.push({d:now,t:'Поповнення карткою (оплата замовлення)',s});
+  o.pm=k.pay; const s=d.sum-bonUse;
+  if(k.pay==='bal'||PAY[k.pay].online){
+    if(PAY[k.pay].online) TX.push({d:now,t:PAY_TX[k.pay]+(k.pay==='parts'?` (${k.parts||3} платежі)`:'')+' — поповнення',s});
     TX.push({d:now,t:'Оплата замовлення',o:id,s:-s}); o.paid+=s;
   }
-  if(k.pay==='inv') INV.unshift({n:invNo(),d:now,o:[id],s:d.sum-bonUse,paid:false});
-  addMsg({from:'Система',o:id,t:`Замовлення №${id} прийнято.`+(files.length?' Макет передано на перевірку.':' Завантажте макет у картці замовлення.')+(k.pay==='inv'?' Рахунок сформовано — він у розділі «Фінанси».':'')});
-  C.draft=null; C.ck={deliv:'np',pay:'card',r:0,files:{},bon:false};
+  if(k.pay==='inv'||k.pay==='iban'){ INV.unshift({n:invNo(),d:now,o:[id],s,paid:false}); if(k.pay==='inv'){ const co=($('#payCo')||{}).value, cd=($('#payCode')||{}).value; if(co) ME.company=co.trim(); if(cd) ME.code=cd.trim(); } }
+  const how={inv:' Рахунок сформовано — він у розділі «Фінанси».',iban:` Оплатіть ${fmt(s)} грн на IBAN ${IBAN_DEMO.iban}, призначення «Оплата замовлення №${id}».`,cod:' Оплата накладеним платежем при отриманні — друк після підтвердження менеджером.',cash:' Оплата при отриманні на складі — друк після підтвердження менеджером.',later:' Оплатити можна в будь-який момент у картці замовлення.'}[k.pay]||(o.paid?` Оплату ${fmt(o.paid)} грн отримано.`:'');
+  addMsg({from:'Система',o:id,t:`Замовлення №${id} прийнято.`+(files.length?' Макет передано на перевірку.':' Завантажте макет у картці замовлення.')+how});
+  C.draft=null; C.ck={deliv:'np',pay:'card',r:0,files:{},bon:false,parts:3};
   go('order/'+id);
 }
 
@@ -888,18 +933,20 @@ const MENU_OF={order:'orders',checkout:'',page:''};
 function rr(){ const y=window.scrollY; PAGES[C.page](C.arg); renderMenu(MENU_OF[C.page]??C.page); window.scrollTo(0,y); }
 
 /* ---------- модалки кабінету ---------- */
-function payModal(ids){
+let PAYPEND=null;
+function payModal(ids,how){
   const os=ids.map(ordById).filter(o=>o&&!isPaid(o)); if(!os.length) return;
-  const s=os.reduce((a,o)=>a+due(o),0), bal=balance();
-  modal(`<h3>Оплата ${os.length>1?os.length+' замовлень':'замовлення №'+os[0].id}</h3><p style="font-size:22px;font-weight:700;margin:0 0 14px">${fmt(s)} грн</p>
-   <div class="rcards">${['bal','card','inv'].map(k=>{ const dis=k==='bal'&&bal<s; return `<a class="rcard ${dis?'dis':''}" data-act="${dis?'':'dopay'}" data-v="${k}" data-ids="${os.map(o=>o.id).join(',')}"><b>${PAY[k].n}</b><span>${k==='bal'?`Доступно ${fmt(bal)} грн${dis?' — недостатньо':''}`:PAY[k].s}</span></a>`; }).join('')}</div>`);
+  const sum=os.reduce((a,o)=>a+due(o),0); how=how||(balance()>=sum?'bal':'card'); PAYPEND={ids:os.map(o=>o.id),how};
+  modal(`<h3>Оплата ${os.length>1?os.length+' замовлень':'замовлення №'+os[0].id}</h3><p style="font-size:22px;font-weight:700;margin:0 0 6px">${fmt(sum)} грн</p>
+   ${payCards(how,sum,'np','pay')}${payDetails(how,sum,'pay')}
+   <button class="btn pri" style="width:100%;height:46px;margin-top:14px" data-act="payConfirm">${PAY[how].online?'Оплатити '+fmt(sum)+' грн':how==='bal'?'Списати з балансу':how==='inv'?'Отримати рахунок':'Показати реквізити'}</button>`);
 }
 function doPay(ids,how){
   const os=ids.map(ordById).filter(o=>o&&!isPaid(o)), now=new Date();
-  if(how==='inv'){ const s=os.reduce((a,o)=>a+due(o),0), n=invNo(); INV.unshift({n,d:now,o:os.map(o=>o.id),s,paid:false});
-    closeModal(); toast(`Рахунок ${n} на ${fmt(s)} грн сформовано. Він у розділі «Фінанси → Рахунки».`); C.osel.clear(); rr(); return; }
+  if(how==='inv'||how==='iban'){ const s=os.reduce((a,o)=>a+due(o),0), n=invNo(); INV.unshift({n,d:now,o:os.map(o=>o.id),s,paid:false}); os.forEach(o=>{ o.pm=how; });
+    closeModal(); toast(how==='inv'?`Рахунок ${n} на ${fmt(s)} грн сформовано. Він у розділі «Фінанси → Рахунки».`:`Переказ на IBAN ${IBAN_DEMO.iban}, ${fmt(s)} грн, призначення «Оплата за рахунком ${n}». Зарахується за 1 банківський день.`); C.osel.clear(); rr(); return; }
   for(const o of os){ const s=due(o);
-    if(how==='card') TX.push({d:now,t:'Поповнення карткою (оплата замовлення)',s});
+    if(PAY[how].online) TX.push({d:now,t:PAY_TX[how]+' — поповнення',s}); o.pm=how;
     TX.push({d:now,t:'Оплата замовлення',o:o.id,s:-s}); o.paid+=s;
     if(o.st==='check'&&filesOk(o.files)) o.st='paid';
     addMsg({from:'Бухгалтерія',o:o.id,t:`Оплату ${fmt(s)} грн за замовлення №${o.id} отримано.`+(o.st==='paid'?' Замовлення передано в друк.':' Після перевірки макета замовлення піде в друк.')}); }
@@ -916,7 +963,7 @@ document.addEventListener('click',e=>{
     case 'opay': payModal([...C.osel]); break;
     case 'oinv': doPay([...C.osel],'inv'); break;
     case 'pay': payModal([id]); break;
-    case 'dopay': doPay(a.dataset.ids.split(',').map(Number),v); break;
+    case 'dopay': payModal(a.dataset.ids.split(',').map(Number),v); break;
     case 'invoice': { const o=ordById(id), ex=INV.find(x=>x.o.includes(id));
       if(ex) toast(`Рахунок ${ex.n} уже є — «Фінанси → Рахунки».`); else if(isPaid(o)) toast('Замовлення оплачене — рахунок і акт будуть у розділі «Фінанси».'); else doPay([id],'inv'); break; }
     case 'repeat': { const o=ordById(id); toast(`Відкриваємо калькулятор «${CATS[o.cat].n}». У робочій версії параметри замовлення №${id} підставляться автоматично.`); setTimeout(()=>{ closeModal(); go(o.cat); },1400); break; }
@@ -932,7 +979,13 @@ document.addEventListener('click',e=>{
     case 'ckd': C.ck.deliv=v; rr(); break;
     case 'ckr': C.ck.r=+v; rr(); break;
     case 'ckp': C.ck.pay=v; rr(); break;
-    case 'place': placeOrder(); break;
+    case 'place': { const d=C.draft, k=C.ck; if(!d) break; const bonMax=k.bon?Math.round(Math.min(bonus(),d.sum*BONUS_RULES.maxPart/100)*100)/100:0;
+      if(PAY[k.pay].online) onlinePay(k.pay,d.sum-bonMax,`${d.cat} · ${d.size}`,()=>placeOrder()); else placeOrder(); break; }
+    case 'payParts': C.ck.parts=+v; if(document.querySelector('.payw')||C.page!=='checkout'){ const ids=(PAYPEND||{}).ids; if(ids){ payModal(ids,PAYPEND.how); break; } } rr(); break;
+    case 'payGo': { a.disabled=true; a.textContent='Обробка платежу…'; setTimeout(()=>{ const cb=PAYCB; PAYCB=null; $('#modalBox').innerHTML=`<div class="payw ok"><div class="payw-ok">✓</div><h3>Оплату пройдено</h3><p class="muted">Тестовий платіж успішний.</p></div>`; setTimeout(()=>{ closeModal(); if(cb) cb(); },900); },1100); break; }
+    case 'payPick': PAYPEND.how=v; payModal(PAYPEND.ids,v); break;
+    case 'payConfirm': { const {ids,how}=PAYPEND, os=ids.map(ordById).filter(o=>o&&!isPaid(o)), sum=os.reduce((a,o)=>a+due(o),0);
+      if(PAY[how].online) onlinePay(how,sum,os.length>1?`${os.length} замовлень`:`Замовлення №${os[0].id}`,()=>doPay(ids,how)); else doPay(ids,how); break; }
     case 'dtab': C.dtab=v; rr(); break;
     case 'ftab': C.ftab=v; rr(); break;
     case 'topup': case 'mkinv': modal(`<h3>${a.dataset.act==='topup'?'Поповнення балансу':'Рахунок на поповнення'}</h3><div class="lbl">Сума, грн</div><input class="inp" id="tuSum" type="number" min="1" value="1000" style="max-width:200px">

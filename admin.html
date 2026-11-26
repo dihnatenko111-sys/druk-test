@@ -6,7 +6,7 @@
 <title>Адмінка друку</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=16">
+<link rel="stylesheet" href="app.css?v=17">
 <style>
 /* ---------- адмінка ---------- */
 .atop{display:flex;align-items:center;gap:16px;padding:12px 24px;flex-wrap:wrap}
@@ -111,11 +111,11 @@ select.ed{padding-right:24px;background-position:right 8px center}
 
 <script>
 // нова версія сайту: браузер міг узяти сторінку з кешу — перевіряємо номер збірки й перезавантажуємо
-(function(){ var B='16'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
+(function(){ var B='17'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
   if(v&&v!==B&&u.searchParams.get('b')!==v){ u.searchParams.set('b',v); location.replace(u.toString()); } }).catch(function(){}); })();
 </script>
-<script src="shared.js?v=16"></script>
-<script src="viewer.js?v=16"></script>
+<script src="shared.js?v=17"></script>
+<script src="viewer.js?v=17"></script>
 <script>
 /* =====================================================================
    АДМІНКА + CRM. Тестові дані, в пам'яті сторінки.
@@ -174,6 +174,7 @@ const due=o=>Math.max(0,oTotal(o)-o.paid);
 const isPaid=o=>due(o)<.005;
 const open_=o=>!['done','cancel'].includes(o.st);
 // перевірка макета (як у Jira): менеджер призначає дизайнера, дизайнер веде статус
+const PAYN={card:'Карткою онлайн',wallet:'Apple Pay / Google Pay',parts:'Оплата частинами',inv:'Рахунок для ФОП / ТОВ',iban:'Переказ на IBAN',bal:'З балансу',cod:'Накладений платіж НП',cash:'При отриманні на складі',later:'Оплатить пізніше'};
 const RV={none:['Не призначено','gray'],todo:['До перевірки','amber'],doing:['Перевіряється','blue'],ok:['Перевірено','green'],bad:['Повернено','red']};
 const rvBadge=k=>`<span class="badge b-${RV[k||'none'][1]}">${RV[k||'none'][0]}</span>`;
 // борг = замовлення пішло в друк без оплати і ще не оплачене
@@ -449,7 +450,7 @@ function pOrder(id){
    <div class="card"><div class="card-h"><h2>Параметри</h2><span class="muted" style="font-size:13px">створено ${dstr(o.d)} ${tstr(o.d)}</span></div>
     <dl class="kv2"><dt>Продукт</dt><dd>${CATS[o.cat].n}${o.title?' · '+esc(o.title):''}</dd><dt>Матеріал</dt><dd>${o.name}</dd><dt>Друк</dt><dd>${qName(o.qk)}</dd>
      <dt>Розмір</dt><dd>${o.w} × ${o.h} мм</dd><dt>Тираж</dt><dd>${o.tir} шт${o.kits>1?` × ${o.kits} комплекти`:''}</dd><dt>Опції</dt><dd>${o.opts.join('<br>')||'—'}</dd>
-     <dt>Термін</dt><dd>${o.term} · готовність <b>${dstr(o.ready)}</b></dd></dl></div>
+     <dt>Термін</dt><dd>${o.term} · готовність <b>${dstr(o.ready)}</b></dd>${o.pm?`<dt>Спосіб оплати</dt><dd>${PAYN[o.pm]||esc(o.pm)}</dd>`:''}</dl></div>
    ${prepCard(o)}
    ${diskCard(o)}
    <div class="card"><div class="card-h"><h2>Листування з клієнтом</h2></div>
