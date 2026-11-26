@@ -7,7 +7,7 @@
 <title>Широкоформатний друк</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=14">
+<link rel="stylesheet" href="app.css?v=15">
 <style>
 /* Вхідна сторінка тестової версії: дві картки-входи і тестові доступи. Кольори — з app.css */
 .start{max-width:960px;margin:0 auto;padding-block:40px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:24px}
@@ -28,6 +28,8 @@
 .acc td{padding:10px 18px;border-top:1px solid var(--line)}
 .acc code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;background:var(--soft);padding:2px 6px;border-radius:6px}
 .note{font-size:13px;color:var(--muted);margin:0}
+.flow ol{margin:0;padding:14px 18px 6px 38px;display:grid;gap:10px;font-size:14px;line-height:1.5}
+.flow code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;background:var(--soft);padding:1px 5px;border-radius:5px}
 @media (max-width:640px){ .doors{grid-template-columns:minmax(0,1fr)} .start h1{font-size:24px} }
 </style>
 </head>
@@ -35,7 +37,7 @@
 
 <script>
 // нова версія сайту: браузер міг узяти сторінку з кешу — перевіряємо номер збірки й перезавантажуємо
-(function(){ var B='14'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
+(function(){ var B='15'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
   if(v&&v!==B&&u.searchParams.get('b')!==v){ u.searchParams.set('b',v); location.replace(u.toString()); } }).catch(function(){}); })();
 </script>
 <main class="start">
@@ -57,6 +59,18 @@
     </a>
   </div>
 
+  <section class="acc flow" aria-labelledby="flowH">
+    <h2 id="flowH">Перевірити весь шлях замовлення</h2>
+    <ol>
+      <li><b>Клієнт.</b> Відкрийте <a href="calculator.html#banner">сайт → Банер</a>, впишіть свій розмір 3000 × 1000 мм, у фільтрі виберіть матеріал і якість, натисніть на ціну → «Оформити замовлення». Увійдіть як клієнт, завантажте макет (можна <a href="test-maket-banner-3000x1000.pdf" download>тестовий макет PDF</a> або свій файл), оплата «Карткою» → підтвердити.</li>
+      <li><b>Дизайнер.</b> <a href="admin.html">Адмінка</a> → вхід <code>designer@druk.test</code> → «Препрес» → «Переглянути» (відкриється ваш файл) → «Перевірено». Або «Повернути» з причиною — клієнт побачить її в кабінеті.</li>
+      <li><b>Оплата.</b> Якщо обрали оплату рахунком — вхід <code>buh@druk.test</code> → «Рахунки й оплати» → «Оплачено». Або менеджер (<code>manager@druk.test</code>) пускає в друк без оплати з датою.</li>
+      <li><b>Друкар.</b> Вхід <code>printer@druk.test</code> → «Виробництво»: замовлення в «Черзі». «Відкрити файл» → поле «Де зараз» → машина → після друку «Віддруковано». У картці можна «Замінити файл» — як після правки на ПК.</li>
+      <li><b>Менеджер.</b> Картка замовлення → ТТН → «Відправлено». Клієнт бачить кожен крок у кабінеті: «Замовлення» і «Листування».</li>
+    </ol>
+    <p class="note" style="padding:0 18px 14px">Робіть усе в одному браузері: у тестовій версії замовлення й файли зберігаються в ньому. Для зручності відкрийте сайт і адмінку в двох вкладках — зміни видно одразу.</p>
+  </section>
+
   <section class="acc" aria-labelledby="accH">
     <h2 id="accH">Тестові доступи</h2>
     <div class="acc-wrap"><table>
@@ -77,7 +91,7 @@
   <p class="note">На сторінці входу в адмінку можна натиснути рядок у таблиці доступів — логін і пароль підставляться самі.</p>
 </main>
 <script>
-document.getElementById('resetDb').addEventListener('click',()=>{ try{ localStorage.removeItem('druk_db_v1'); sessionStorage.clear(); }catch(e){} document.getElementById('resetMsg').textContent='Дані повернуто до початкових.'; });
+document.getElementById('resetDb').addEventListener('click',()=>{ try{ localStorage.removeItem('druk_db_v1'); sessionStorage.clear(); indexedDB.deleteDatabase('druk_files'); }catch(e){} document.getElementById('resetMsg').textContent='Дані повернуто до початкових.'; });
 </script>
 </body>
 </html>

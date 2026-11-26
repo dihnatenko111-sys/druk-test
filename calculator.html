@@ -6,7 +6,7 @@
 <title>Широкоформатний друк</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=14">
+<link rel="stylesheet" href="app.css?v=15">
 </head>
 <body>
 
@@ -32,10 +32,10 @@
 
 <script>
 // нова версія сайту: браузер міг узяти сторінку з кешу — перевіряємо номер збірки й перезавантажуємо
-(function(){ var B='14'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
+(function(){ var B='15'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
   if(v&&v!==B&&u.searchParams.get('b')!==v){ u.searchParams.set('b',v); location.replace(u.toString()); } }).catch(function(){}); })();
 </script>
-<script src="shared.js?v=14"></script>
+<script src="shared.js?v=15"></script>
 <script>
 /* =====================================================================
    РЕНДЕР
@@ -630,7 +630,7 @@ function pOrder(id){
     <div class="card"><div class="card-h"><h2>Макети</h2></div>
      ${o.st==='fix'?`<div class="alert"><b>Макет повернено на виправлення</b>${o.fix}<div class="links"><label class="lnk" style="cursor:pointer;color:var(--accent);font-weight:600">Завантажити виправлений<input type="file" hidden data-upl="${o.id}"></label><a data-act="rework" data-id="${o.id}">Замовити доопрацювання макета</a></div></div>`:''}
      ${o.reworkReq&&!o.rework?`<div class="alert info"><b>Доопрацювання замовлено</b>Дизайнер подивиться макет і виставить вартість — вона з’явиться тут і в «Листуванні».</div>`:''}
-     <div class="files">${o.files.map(f=>`<div class="file">${I.file}<span class="n">${esc(f.n)}</span><span class="badge b-${FILE_ST[f.st][1]}">${FILE_ST[f.st][0]}</span></div>`).join('')||'<span class="muted">Макет ще не завантажено</span>'}</div>
+     <div class="files">${o.files.map((f,i)=>`<div class="file">${I.file}<span class="n">${f.fid?`<a data-act="myFile" data-id="${o.id}" data-v="${i}">${esc(f.n)}</a>`:esc(f.n)}${f.size?` <span class="muted" style="font-size:12px">${fsize(f.size)}</span>`:''}</span><span class="badge b-${FILE_ST[f.st][1]}">${FILE_ST[f.st][0]}</span></div>`).join('')||'<span class="muted">Макет ще не завантажено</span>'}</div>
      ${['new','check'].includes(o.st)?`<label class="drop">${I.upload}<b>Завантажити ${o.files.length?'ще один ':''}макет</b>PDF, TIFF, JPG · до 2 ГБ<input type="file" data-upl="${o.id}"></label>`:''}
     </div>
     <div class="card"><div class="card-h"><h2>Повідомлення</h2></div>
@@ -664,7 +664,7 @@ function pCheckout(){
   `<div class="cols"><div>
     <div class="card"><div class="card-h"><h2>1. Макет${d.kits>1?'и':''}</h2><a data-act="req">Вимоги до макета</a></div>
      <div class="rcards" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">${kits.map(i=>{ const f=k.files[i];
-       return `<label class="drop ${f?'has':''}">${f?I.file:I.upload}<b>${f?esc(f):d.kits>1?'Макет комплекту '+(i+1):'Завантажити макет'}</b>${f?'Натисніть, щоб замінити':'PDF, TIFF, JPG · до 2 ГБ'}<input type="file" data-kf="${i}"></label>`; }).join('')}</div>
+       return `<label class="drop ${f?'has':''}">${f?I.file:I.upload}<b>${f?esc(f.n||f):d.kits>1?'Макет комплекту '+(i+1):'Завантажити макет'}</b>${f?(f.size?fsize(f.size)+' · ':'')+'натисніть, щоб замінити':'PDF, TIFF, JPG · до 2 ГБ'}<input type="file" data-kf="${i}"></label>`; }).join('')}</div>
      <p class="muted" style="font-size:13px;margin:10px 0 0">Можна завантажити пізніше — у картці замовлення. Макет перевіряє препрес; у друк замовлення йде після перевірки й оплати.</p>
      <div class="fgrid" style="margin-top:14px"><div><div class="lbl">Назва замовлення (для себе)</div><input class="inp" id="ckTitle" value="${esc(k.title||'')}" placeholder="Напр., Вивіска для кав’ярні"></div>
       <div><div class="lbl">Коментар до замовлення</div><input class="inp" id="ckCom" value="${esc(k.comment||'')}"></div></div></div>
@@ -691,7 +691,7 @@ function placeOrder(){
   const d=C.draft, k=C.ck; if(!d) return;
   const id=Math.max(48000,...DB.orders.map(o=>o.id),...ORDERS.map(o=>o.id))+1, now=new Date();
   const bonUse=k.bon?Math.round(Math.min(bonus(),d.sum*BONUS_RULES.maxPart/100)*100)/100:0;
-  const files=Object.values(k.files).map(n=>({n,st:'wait'}));
+  const files=Object.values(k.files).map(x=>({n:x.n||x,fid:x.fid||null,size:x.size||0,st:'wait',at:now}));
   const o={id,d:now,cat:d.catId,title:(k.title||'').trim(),name:d.name,q:d.q,size:d.size,tir:d.tir,kits:d.kits,opts:d.opts,term:d.term,ready:d.readyDate,
     sum:d.sum,paid:0,st:files.length?'check':'new',deliv:{t:k.deliv==='self'?'self':'np',r:k.r},files,comment:(k.comment||'').trim()};
   o._x=d.x; ORDERS.unshift(o);
@@ -958,6 +958,7 @@ document.addEventListener('click',e=>{
       addMsg({from:'Підтримка',o:o?+o:null,t:'Звернення отримано. Менеджер відповість тут, у «Листуванні», найближчим часом.'}); rr(); break; }
     case 'atab': C.atab=v; rr(); break;
     case 'rtype': C.rtype=v; rr(); break;
+    case 'myFile': { const o=ordById(id), f=o&&o.files[+v]; if(f) fileOpen(o,f); break; }
     case 'endBehalf': try{ sessionStorage.removeItem('behalf_by'); }catch(e){} push(); BY=null; setAuth(null); location.href='admin.html#clients'; break;
     case 'login': { const l=normLogin($('#lgLogin').value), p=$('#lgPass').value;
       const c=DB.clients.find(x=>x.pass&&x.pass===p&&[x.em,x.ph].some(y=>y&&normLogin(y)===l));
@@ -982,8 +983,9 @@ document.addEventListener('click',e=>{
 document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&['lgLogin','lgPass','lgName'].includes(e.target.id)) document.querySelector('[data-act=login],[data-act=register]')?.click(); });
 document.addEventListener('change',e=>{
   const t=e.target;
-  if(t.dataset.kf!=null&&t.files[0]){ C.ck.files[+t.dataset.kf]=t.files[0].name; rr(); }
-  if(t.dataset.upl&&t.files[0]){ const o=ordById(t.dataset.upl); o.files.forEach(f=>{ if(f.st==='bad') f.st='old'; }); o.files.push({n:t.files[0].name,st:'wait',at:new Date()}); if(o.st==='fix'||o.st==='new'){ o.st='check'; o.fix=null; }
+  if(t.dataset.kf!=null&&t.files[0]){ const file=t.files[0], i=+t.dataset.kf, old=C.ck.files[i]; C.ck.files[i]={n:file.name,size:file.size,fid:null}; rr();
+    FSTORE.put(file).then(fid=>{ if(old&&old.fid) FSTORE.del(old.fid); if(C.ck.files[i]&&C.ck.files[i].n===file.name) C.ck.files[i].fid=fid; }).catch(()=>toast('Не вдалося зберегти файл у браузері')); }
+  if(t.dataset.upl&&t.files[0]){ const o=ordById(t.dataset.upl), file=t.files[0], nf={n:file.name,size:file.size,fid:null,st:'wait',at:new Date()}; FSTORE.put(file).then(fid=>{ nf.fid=fid; push(); }); o.files.forEach(f=>{ if(f.st==='bad') f.st='old'; }); o.files.push(nf); if(o.st==='fix'||o.st==='new'){ o.st='check'; o.fix=null; }
     addMsg({from:'Система',o:o.id,t:`Макет ${t.files[0].name} отримано й передано на перевірку.`}); rr(); }
   if(t.id==='ckBon'){ C.ck.bon=t.checked; rr(); }
   if(t.id==='tkFile'&&t.files[0]) $('#tkFn').textContent=t.files[0].name;

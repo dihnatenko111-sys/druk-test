@@ -527,6 +527,27 @@ function saveDB(db,withCatalog){
   if(withCatalog||!db.cat) db.cat=collectCatalog();
   try{ localStorage.setItem(DB_KEY,JSON.stringify(db)); }catch(e){}
 }
+/* ---------- файли макетів: у тестовій версії — у сховищі браузера (IndexedDB), спільному для сайту й адмінки.
+   У робочій версії — хмарне сховище на сервері. ---------- */
+const FSTORE={
+  _db:null,
+  open(){ return this._db||(this._db=new Promise((res,rej)=>{ const r=indexedDB.open('druk_files',1); r.onupgradeneeded=()=>r.result.createObjectStore('f'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); })); },
+  async put(blob){ const id='f'+Date.now().toString(36)+Math.random().toString(36).slice(2,7), db=await this.open();
+    await new Promise((res,rej)=>{ const t=db.transaction('f','readwrite'); t.objectStore('f').put(blob,id); t.oncomplete=res; t.onerror=()=>rej(t.error); }); return id; },
+  async get(id){ if(!id) return null; const db=await this.open(); return new Promise((res,rej)=>{ const q=db.transaction('f').objectStore('f').get(id); q.onsuccess=()=>res(q.result||null); q.onerror=()=>rej(q.error); }); },
+  async del(id){ if(!id) return; const db=await this.open(); return new Promise(res=>{ const t=db.transaction('f','readwrite'); t.objectStore('f').delete(id); t.oncomplete=res; t.onerror=res; }); },
+};
+const fsize=b=>b<1048576?Math.max(1,Math.round(b/1024))+' КБ':(b/1048576).toFixed(b<1e8?1:0)+' МБ';
+// тестовий макет для демо-замовлень без файлу: картинка з номером і розміром у пропорціях виробу
+function sampleBlob(o,f){ const w=o.w||1000,h=o.h||1000,k=900/Math.max(w,h),W=Math.round(w*k),H=Math.round(h*k);
+  return new Blob([`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7dd3fc"/><stop offset=".6" stop-color="#a78bfa"/><stop offset="1" stop-color="#f9a8d4"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/><rect x="6" y="6" width="${W-12}" height="${H-12}" fill="none" stroke="#fff" stroke-dasharray="10 6"/><text x="50%" y="45%" text-anchor="middle" font-family="sans-serif" font-size="${Math.max(16,Math.min(W,H)/9)}" font-weight="700" fill="#fff">Макет №${o.id}</text><text x="50%" y="60%" text-anchor="middle" font-family="sans-serif" font-size="${Math.max(12,Math.min(W,H)/16)}" fill="#fff">${w} × ${h} мм · ${esc(f.n)}</text></svg>`],{type:'image/svg+xml'}); }
+async function fileBlob(o,f){ return (f.fid&&await FSTORE.get(f.fid))||sampleBlob(o,f); }
+// відкрити у вкладці (PDF, JPG, PNG, SVG показує браузер); інше — зберегти на диск
+async function fileOpen(o,f,name){ const b=await fileBlob(o,f), u=URL.createObjectURL(b);
+  if(/pdf|image\/(jpeg|png|svg|webp|gif)/.test(b.type)){ const w=window.open(u,'_blank'); if(w) return; }
+  fileSave(o,f,name,b); }
+async function fileSave(o,f,name,b){ b=b||await fileBlob(o,f); const a=document.createElement('a'); a.href=URL.createObjectURL(b);
+  a.download=(name||f.n).replace(/\.[a-z0-9]+$/i,'')+(f.fid?(f.n.match(/\.[a-z0-9]+$/i)||[''])[0]:'.svg'); document.body.appendChild(a); a.click(); a.remove(); }
 // повна сума замовлення: друк + доопрацювання макета + доставка (окремі статті)
 const oTotal=o=>o.sum+(o.rework||0)+(o.dlv||0);
 // макети готові: є хоч один, і всі актуальні (не замінені) перевірені

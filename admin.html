@@ -6,7 +6,7 @@
 <title>Адмінка друку</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=14">
+<link rel="stylesheet" href="app.css?v=15">
 <style>
 /* ---------- адмінка ---------- */
 .atop{display:flex;align-items:center;gap:16px;padding:12px 24px;flex-wrap:wrap}
@@ -111,10 +111,10 @@ select.ed{padding-right:24px;background-position:right 8px center}
 
 <script>
 // нова версія сайту: браузер міг узяти сторінку з кешу — перевіряємо номер збірки й перезавантажуємо
-(function(){ var B='14'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
+(function(){ var B='15'; if(B.indexOf('__')===0) return; fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(v){ v=(v||'').trim(); var u=new URL(location.href);
   if(v&&v!==B&&u.searchParams.get('b')!==v){ u.searchParams.set('b',v); location.replace(u.toString()); } }).catch(function(){}); })();
 </script>
-<script src="shared.js?v=14"></script>
+<script src="shared.js?v=15"></script>
 <script>
 /* =====================================================================
    АДМІНКА + CRM. Тестові дані, в пам'яті сторінки.
@@ -430,7 +430,7 @@ function creditModal(o){
    ===================================================================== */
 function pOrder(id){
   const o=ord(id); if(!o){ app.innerHTML=pageH('Замовлення не знайдено'); return; }
-  if(!can('allOrders')&&o.who!==meId&&o.des!==meId&&!(can('production')&&['paid','print','ready'].includes(o.st))){ app.innerHTML=noAccess(); return; }
+  if(!can('allOrders')&&o.who!==meId&&o.des!==meId&&!(!o.des&&can('prepress')&&['new','check','fix'].includes(o.st))&&!(can('production')&&['paid','print','ready'].includes(o.st))){ app.innerHTML=noAccess(); return; }
   const c=cl(o.c), lv=CFG.levels.find(l=>l.id===c.level), k=costOf(o), mine=o.who===meId;
   const nx=NEXT[o.st].filter(s=>!(s==='sent'&&o.deliv==='self')&&!(s==='done'&&o.st==='ready'&&o.deliv!=='self'));
   const stBtn=s=>{ const block=s==='paid'&&!isPaid(o)&&!o.credit?'Чекає оплати (статус оплати змінює бухгалтер)':s==='paid'&&!layoutsOk(o)?'Не всі макети перевірені':s==='sent'&&!o.ttn?'Вкажіть ТТН':'';
@@ -490,14 +490,14 @@ function diskCard(o){
   const fs=o.files.map((f,i)=>({f,i})).filter(x=>x.f.st==='ok');
   const block=(who,root)=>`<div class="disk"><div class="disk-h">${I.file}<b>${who}</b><span class="badge b-green">синхронізовано</span></div><code>${esc(diskDir(o,root))}\\</code>
     ${fs.map(({f,i})=>`<div class="disk-f"><span>${esc(diskName(o,f,i))}</span>
-      <span class="disk-a"><button class="btn sm pri" data-act="fsOpen" data-v="${esc(diskDir(o,root)+'\\'+diskName(o,f,i))}">Відкрити файл</button><button class="btn sm" data-act="fsReveal" data-v="${esc(diskDir(o,root)+'\\'+diskName(o,f,i))}">Показати в папці</button><button class="btn sm" data-act="fsCopy" data-v="${esc(diskDir(o,root)+'\\'+diskName(o,f,i))}">Копіювати шлях</button></span><small>${f.ver>1?`версія ${f.ver} · змінено ${f.by||''} ${f.at?ago(f.at)+' тому':''}`:`оригінал: ${esc(f.n)}`}</small></div>`).join('')||'<span class="muted">Перевірених файлів ще немає</span>'}</div>`;
+      <span class="disk-a"><button class="btn sm pri" data-act="fView" data-id="${o.id}" data-v="${i}">Відкрити файл</button><button class="btn sm" data-act="fDlDisk" data-id="${o.id}" data-v="${i}">Завантажити</button><label class="btn sm">Замінити файл<input type="file" hidden data-repl="${o.id}" data-i="${i}"></label><button class="btn sm" data-act="fsReveal" data-v="${esc(diskDir(o,root)+'\\'+diskName(o,f,i))}">Показати в папці</button><button class="btn sm" data-act="fsCopy" data-v="${esc(diskDir(o,root)+'\\'+diskName(o,f,i))}">Копіювати шлях</button></span><small>${f.ver>1?`версія ${f.ver} · змінено ${f.by||''} ${f.at?ago(f.at)+' тому':''}`:`оригінал: ${esc(f.n)}`}${f.size?' · '+fsize(f.size):''}${f.fid?'':' · демо-файл'}</small></div>`).join('')||'<span class="muted">Перевірених файлів ще немає</span>'}</div>`;
   return `<div class="card"><div class="card-h"><h2>Файли на диску</h2><span class="muted" style="font-size:12px">агент друку · Windows</span></div>
    ${issue}
    ${pr&&o.qAt?block('ПК друкаря',PRINT_ROOT):''}${ds?block('ПК дизайнера',DES_ROOT):''}
    ${pr&&!o.qAt?'<span class="muted" style="font-size:13px">Папка створиться, щойно замовлення потрапить у «Чергу друку».</span>':''}
-   <div class="btns" style="margin-top:10px">${fs.length&&(pr&&can('production')||ds&&can('prepress'))?`<button class="btn sm" data-act="demoEdit" data-id="${o.id}" style="border-style:dashed">Імітувати: файл змінено на ПК</button>`:''}
+   <div class="btns" style="margin-top:10px">
     ${pr&&can('production')&&['paid','print'].includes(o.st)&&!o.prIssue?`<button class="btn sm bad" data-act="prIssue" data-id="${o.id}">Повернути менеджеру з коментарем</button>`:''}</div>
-   <p class="muted" style="font-size:12px;margin:10px 0 0">Агент сам створює папку і перейменовує файли. Змінений на ПК файл одразу замінює файл в адмінці, старий видаляється. Клієнт ці файли не бачить.</p></div>`;
+   <p class="muted" style="font-size:12px;margin:10px 0 0">Агент сам створює папку і перейменовує файли. Змінений на ПК файл одразу замінює файл в адмінці, старий видаляється. Клієнт ці файли не бачить. У тестовій версії «Замінити файл» робить те саме, що зробить агент після зміни файлу на диску.</p></div>`;
 }
 function prepCard(o){
   const editable=['new','check','fix'].includes(o.st);
@@ -508,9 +508,9 @@ function prepCard(o){
    ${o.reworkReq&&!o.rework&&can('rework')?`<div class="alert info"><b>Клієнт замовив доопрацювання макета</b>Оцініть роботу й виставте вартість — вона додасться до замовлення і прийде клієнту в листування.
      <div class="btns" style="margin-top:8px"><input class="ed" id="rwP" type="number" min="0" placeholder="грн" style="width:110px"><button class="btn sm pri" data-act="rwSet" data-id="${o.id}">Виставити вартість</button></div></div>`:''}
    ${o.rework?`<div class="alert info" style="background:var(--green-bg)"><b>Доопрацювання: ${fmt(o.rework)} грн</b>Додано до замовлення.</div>`:''}
-   <div class="files">${o.files.map((f,i)=>`<div class="file" style="flex-wrap:wrap">${I.file}<span class="n">${esc(f.n)}${f.at?` <span class="muted" style="font-size:12px">· ${ago(f.at)} тому</span>`:''}</span>
+   <div class="files">${o.files.map((f,i)=>`<div class="file" style="flex-wrap:wrap">${I.file}<span class="n"><a data-act="fView" data-id="${o.id}" data-v="${i}">${esc(f.n)}</a>${f.size?` <span class="muted" style="font-size:12px">${fsize(f.size)}</span>`:''}${f.at?` <span class="muted" style="font-size:12px">· ${ago(f.at)} тому</span>`:''}</span>
       <span class="badge b-${{ok:'green',wait:'amber',bad:'red',old:'gray'}[f.st]}">${{ok:'Перевірено',wait:'На перевірці',bad:'Повернено',old:'Замінено'}[f.st]}</span>
-      ${editable&&f.st==='wait'?`<span class="btns" style="width:100%;padding-left:28px"><button class="btn sm ok" data-act="fOk" data-id="${o.id}" data-v="${i}">Перевірено</button><button class="btn sm bad" data-act="fBad" data-id="${o.id}" data-v="${i}">Повернути на виправлення</button><button class="btn sm" data-toast="Тестова версія: відкриється перегляд файлу">Переглянути</button></span>`:''}
+      ${editable&&f.st==='wait'?`<span class="btns" style="width:100%;padding-left:28px"><button class="btn sm ok" data-act="fOk" data-id="${o.id}" data-v="${i}">Перевірено</button><button class="btn sm bad" data-act="fBad" data-id="${o.id}" data-v="${i}">Повернути на виправлення</button><button class="btn sm" data-act="fView" data-id="${o.id}" data-v="${i}">Переглянути</button><button class="btn sm" data-act="fDl" data-id="${o.id}" data-v="${i}">Завантажити</button></span>`:''}
       ${f.reason?`<span class="muted" style="width:100%;padding-left:28px;font-size:12.5px">Причина: ${esc(f.reason)}</span>`:''}</div>`).join('')||'<span class="muted">Макет ще не завантажено</span>'}</div>${o.st==='fix'?`<button class="btn sm" data-act="demoUp" data-id="${o.id}" style="border-style:dashed">Імітувати: клієнт завантажив новий макет</button>`:''}</div>`;
 }
 
@@ -518,7 +518,7 @@ function prepCard(o){
    4. ПРЕПРЕС
    ===================================================================== */
 function prepQueue(){
-  const out=[]; for(const o of visibleOrders()) if(['new','check','fix'].includes(o.st)) o.files.forEach((f,i)=>{ if(f.st==='wait') out.push({o,f,i}); });
+  const out=[]; for(const o of ORD.filter(o=>can('allOrders')||o.who===meId||o.des===meId||(!o.des&&can('prepress')))) if(['new','check','fix'].includes(o.st)) o.files.forEach((f,i)=>{ if(f.st==='wait') out.push({o,f,i}); });
   return out.sort((a,b)=>(a.f.at||a.o.d)-(b.f.at||b.o.d));
 }
 function pPrepress(){
@@ -528,7 +528,7 @@ function pPrepress(){
   app.innerHTML=pageH('Препрес')+
   `<div class="card flush"><div class="bar fbar"><input class="inp" id="oq" placeholder="№ замовлення, клієнт" value="${esc(U.q)}" style="max-width:220px">${fSel('fDes','Усі дизайнери',desList().map(s=>[s.id,short(s.n)]))}${fSel('fMgr','Усі менеджери',mgrs().map(s=>[s.id,short(s.n)]))}${fSel('fRv','Перевірка: усі',Object.entries(RV).map(([k,v])=>[k,v[0]]))}${U.q||U.fDes||U.fMgr||U.fRv?'<button class="btn sm" data-act="fClear">Скинути</button>':''}</div></div>
   <div class="card flush"><div class="bar"><b>Макети на перевірку</b><span class="muted" style="font-size:13px">найстаріші зверху</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Чекає</th><th>Замовлення</th><th>Файл</th><th>Дизайнер · статус</th><th>Менеджер</th><th></th></tr></thead><tbody>
-   ${q.map(({o,f,i})=>`<tr><td><b>${ago(f.at||o.d)}</b></td><td><a data-go="order/${o.id}">№${o.id}</a><small>${esc(cl(o.c).n)} · ${CATS[o.cat].n}, ${o.w}×${o.h} мм, ${qName(o.qk)}</small></td><td>${esc(f.n)}</td>
+   ${q.map(({o,f,i})=>`<tr><td><b>${ago(f.at||o.d)}</b></td><td><a data-go="order/${o.id}">№${o.id}</a><small>${esc(cl(o.c).n)} · ${CATS[o.cat].n}, ${o.w}×${o.h} мм, ${qName(o.qk)}</small></td><td><a data-act="fView" data-id="${o.id}" data-v="${i}">${esc(f.n)}</a></td>
      <td>${o.des?short(staffN(o.des)):'<span class="free">не призначено</span>'}<small>${rvBadge(o.rv)}</small></td><td>${o.who?short(staffN(o.who)):'<span class="free">вільне</span>'}</td>
      <td class="r"><span class="btns" style="justify-content:flex-end"><button class="btn sm ok" data-act="fOk" data-id="${o.id}" data-v="${i}">Перевірено</button><button class="btn sm bad" data-act="fBad" data-id="${o.id}" data-v="${i}">Повернути</button></span></td></tr>`).join('')||'<tr><td colspan="6" class="none">Черга порожня</td></tr>'}</tbody></table></div></div>
   <div class="card flush"><div class="bar"><b>Запити на доопрацювання</b><span class="muted" style="font-size:13px">треба виставити вартість</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Замовлення</th><th>Що просить клієнт</th><th>Вартість, грн</th></tr></thead><tbody>
@@ -1082,7 +1082,7 @@ document.addEventListener('click',e=>{
     case 'st': if(v==='cancel'){ modal(`<h3>Скасувати №${id}?</h3><p class="muted">Клієнт отримає повідомлення.${o.paid?` Оплачені ${fmt(o.paid)} грн повернуться на баланс клієнта.`:''}</p><button class="btn pri" data-act="doCancel" data-id="${id}">Так, скасувати</button>`); break; }
       setStatus(o,v); rr(); break;
     case 'doCancel': if(o.paid){ LEDGER.push({c:o.c,d:new Date(),t:`Повернення за скасоване №${o.id}`,s:o.paid}); o.paid=0; } setStatus(o,'cancel'); closeModal(); rr(); break;
-    case 'fOk': { const f=o.files[+v]; f.st='ok'; logO(o,`макет ${f.n} перевірено`);
+    case 'fOk': { const f=o.files[+v]; f.st='ok'; if(!o.des&&ME().role==='designer') o.des=meId; logO(o,`макет ${f.n} перевірено`);
       if(layoutsOk(o)){ if(o.st==='fix') o.st='check'; sendClient(o,'Препрес',`Макет для №${o.id} перевірено.`+(isPaid(o)?' Замовлення йде в друк.':' Замовлення піде в друк після оплати.')); o.rv='ok'; if((isPaid(o)||o.credit)&&o.st==='check') setStatus(o,'paid'); }
       rr(); break; }
     case 'fBad': modal(`<h3>Повернути макет на виправлення</h3><p class="muted" style="margin-top:0">${esc(o.files[+v].n)} · №${id}</p>
@@ -1127,11 +1127,14 @@ document.addEventListener('click',e=>{
     case 'combo': U.combo=!U.combo; rr(); break;
     case 'nmTgl': U.nm=a.checked; rr(); break;
     case 'printDoc': printDoc(o); break;
+    case 'fView': { const f=o.files[+v]; if(f) fileOpen(o,f,diskName(o,f,+v)); break; }
+    case 'fDl': { const f=o.files[+v]; if(f) fileSave(o,f); break; }
+    case 'fDlDisk': { const f=o.files[+v]; if(f) fileSave(o,f,diskName(o,f,+v)); break; }
     // відкриття файлу / папки робить агент друку через своє посилання drukagent:// (браузер сам не має доступу до диска)
     case 'fsOpen': case 'fsReveal': fsModal(a.dataset.act==='fsOpen',v); break;
     case 'fsOpenO': { const fs=o.files.map((f,i)=>({f,i})).filter(x=>x.f.st==='ok'), dir=diskDir(o,PRINT_ROOT), path=x=>dir+'\\'+diskName(o,x.f,x.i);
-      if(fs.length===1){ fsModal(true,path(fs[0])); break; }
-      modal(`<h3>Файли замовлення №${o.id}</h3><div style="display:grid;gap:8px">${fs.map(x=>`<div class="disk-f"><span>${esc(diskName(o,x.f,x.i))}</span><span class="disk-a"><button class="btn sm pri" data-act="fsOpen" data-v="${esc(path(x))}">Відкрити</button><button class="btn sm" data-act="fsReveal" data-v="${esc(path(x))}">Показати в папці</button></span></div>`).join('')}</div>`); break; }
+      if(fs.length===1){ fileOpen(o,fs[0].f,diskName(o,fs[0].f,fs[0].i)); break; }
+      modal(`<h3>Файли замовлення №${o.id}</h3><div style="display:grid;gap:8px">${fs.map(x=>`<div class="disk-f"><span>${esc(diskName(o,x.f,x.i))}</span><span class="disk-a"><button class="btn sm pri" data-act="fView" data-id="${o.id}" data-v="${x.i}">Відкрити</button><button class="btn sm" data-act="fsReveal" data-v="${esc(path(x))}">Показати в папці</button></span></div>`).join('')}</div>`); break; }
     case 'fsCopy': { const path=v; const ok=()=>{ a.textContent='Скопійовано ✓'; setTimeout(()=>{ a.textContent='Копіювати шлях'; },1500); };
       try{ navigator.clipboard.writeText(path).then(ok,()=>toast(esc(path))); }catch(e){ toast(esc(path)); } return; }
     case 'demoEdit': { const i=o.files.findIndex(f=>f.st==='ok'); if(i<0) return; const f=o.files[i], who=can('production')&&!can('prepress')?'на ПК друкаря':'на ПК дизайнера';
@@ -1187,6 +1190,9 @@ document.addEventListener('change',e=>{
   if(t.id==='rvSel'){ const o=ord(d.id); o.rv=t.value; logO(o,`статус перевірки: ${RV[o.rv][0]}`); rr(); return; }
   if(d.f){ U[d.f]=t.value; rr(); return; }
   if(d.mv){ const o=ord(d.mv); moveProd(o,t.value); rr(); return; }
+  if(d.repl&&t.files[0]){ const o=ord(d.repl), f=o.files[+d.i], file=t.files[0], who=can('production')&&!can('prepress')?'на ПК друкаря':'на ПК дизайнера';
+    FSTORE.put(file).then(fid=>{ const old=f.fid; f.fid=fid; f.size=file.size; f.ver=(f.ver||1)+1; f.at=new Date(); f.by=who; if(old) FSTORE.del(old);
+      logO(o,`файл ${diskName(o,f,+d.i)} змінено ${who} — замінено на сервері (версія ${f.ver}, стару видалено)`); persist(); rr(); }); return; }
   if(t.id==='fDf'){ U.df=t.value; rr(); return; }
   if(t.id==='fDt'){ U.dt=t.value; rr(); return; }
   if(t.id==='fSt'){ U.rst=t.value; rr(); return; }
